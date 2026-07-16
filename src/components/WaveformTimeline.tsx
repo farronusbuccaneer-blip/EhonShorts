@@ -283,27 +283,27 @@ export const WaveformTimeline: React.FC<WaveformTimelineProps> = ({
   };
 
   return (
-    <div ref={containerRef} className="w-full bg-slate-900/60 backdrop-blur-md border border-slate-800 rounded-xl p-4 flex flex-col gap-3">
-      <div className="flex items-center justify-between text-xs text-slate-400 select-none">
-        <div className="flex items-center gap-2">
-          <span className="font-semibold text-slate-200">Timeline / Waveform</span>
+    <div ref={containerRef} className="timeline-container">
+      <div className="timeline-header">
+        <div className="timeline-title-group">
+          <span className="timeline-title">Timeline / Waveform</span>
           {silenceGaps.length > 0 && (
-            <div className="flex items-center gap-1 text-rose-400 bg-rose-950/20 px-2 py-0.5 rounded border border-rose-900/30">
+            <div className="timeline-gaps-badge">
               <AlertCircle size={10} />
               <span>{silenceGaps.length} Silence Gaps Detected</span>
             </div>
           )}
         </div>
-        <div className="flex gap-4 font-mono">
-          <div>Position: <span className="text-emerald-400 font-semibold">{formatTime(currentTime)}</span></div>
-          <div>Duration: <span className="text-slate-200 font-semibold">{formatTime(duration)}</span></div>
+        <div className="timeline-stats">
+          <div>Position: <span className="timeline-stat-val emerald">{formatTime(currentTime)}</span></div>
+          <div>Duration: <span className="timeline-stat-val">{formatTime(duration)}</span></div>
         </div>
       </div>
 
-      <div className="relative w-full h-24 bg-slate-950/50 rounded-lg overflow-hidden border border-slate-900">
+      <div className="timeline-canvas-wrapper">
         <canvas
           ref={canvasRef}
-          className={`w-full h-full block ${hoveredMarkerIdx !== null ? 'cursor-ew-resize' : 'cursor-pointer'}`}
+          className={`timeline-canvas ${hoveredMarkerIdx !== null ? 'marker-hover' : ''}`}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
@@ -311,7 +311,7 @@ export const WaveformTimeline: React.FC<WaveformTimelineProps> = ({
         />
       </div>
 
-      <div className="flex justify-between items-center text-[10px] font-mono text-slate-500 px-1 select-none">
+      <div className="timeline-labels">
         <span>0.0s</span>
         <span>{(duration * 0.25).toFixed(1)}s</span>
         <span>{(duration * 0.5).toFixed(1)}s</span>
