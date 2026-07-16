@@ -1,0 +1,437 @@
+export interface SilenceGap {
+  start: number;
+  end: number;
+}
+
+/**
+ * Decodes a narration or BGM file into an AudioBuffer using the provided AudioContext.
+ */
+export async function decodeAudio(file: File, audioCtx: AudioContext): Promise<AudioBuffer> {
+  const arrayBuffer = await file.arrayBuffer();
+  // Use modern decodeAudioData (promise-based)
+  return await audioCtx.decodeAudioData(arrayBuffer);
+}
+
+/**
+ * Detects silent regions in an AudioBuffer.
+ * @param audioBuffer The narration AudioBuffer.
+ * @param thresholdDb The volume threshold in dB below which we consider it silence (e.g. -45dB).
+ * @param minSilenceDuration The minimum duration of a silence gap in seconds (e.g. 0.5s).
+ */
+export function detectSilenceGaps(
+  audioBuffer: AudioBuffer,
+  thresholdDb: number = -40,
+  minSilenceDuration: number = 0.5
+): SilenceGap[] {
+  const sampleRate = audioBuffer.sampleRate;
+  const channelData = audioBuffer.getChannelData(0); // Analyze mono or left channel
+  const totalSamples = channelData.length;
+
+  const thresholdAmp = Math.pow(10, thresholdDb / 20); // Convert dB to amplitude
+  const windowSize = Math.floor(sampleRate * 0.05); // 50ms window size
+
+  const silenceGaps: SilenceGap[] = [];
+  let isSilent = false;
+  let silenceStart = 0;
+
+  for (let i = 0; i < totalSamples; i += windowSize) {
+    const endWindow = Math.min(i + windowSize, totalSamples);
+    let sumSquares = 0;
+
+    for (let j = i; j < endWindow; j++) {
+      sumSquares += channelData[j] * channelData[j];
+    }
+
+    const rms = Math.sqrt(sumSquares / (endWindow - i));
+    const time = i / sampleRate;
+
+    if (rms < thresholdAmp) {
+      if (!isSilent) {
+        isSilent = true;
+        silenceStart = time;
+      }
+    } else {
+      if (isSilent) {
+        isSilent = false;
+        const duration = time - silenceStart;
+        if (duration >= minSilenceDuration) {
+          silenceGaps.push({ start: silenceStart, end: time });
+        }
+      }
+    }
+  }
+
+  // Handle trailing silence
+  if (isSilent) {
+    const duration = (totalSamples / sampleRate) - silenceStart;
+    if (duration >= minSilenceDuration) {
+      silenceGaps.push({ start: silenceStart, end: totalSamples / sampleRate });
+    }
+  }
+
+  return silenceGaps;
+}
+
+interface TextSlide {
+  header: string;
+  sub_header: string;
+}
+
+/**
+ * Estimates slide boundaries by character count proportion and snaps them to the nearest silence gaps.
+ * @param slides The parsed slides.
+ * @param audioDuration Total duration of the audio in seconds.
+ * @param silenceGaps Detected silence gaps.
+ */
+export function alignSlidesHeuristically(
+  slides: TextSlide[],
+  audioDuration: number,
+  silenceGaps: SilenceGap[]
+): number[] {
+  if (slides.length <= 1) return [0];
+
+  // 1. Calculate weights (character lengths) of each slide
+  const slideWeights = slides.map(slide => {
+    const headerLen = (slide.header || '').length;
+    const subHeaderLen = (slide.sub_header || '').length;
+    // Provide a small baseline weight so empty slides don't get 0 duration
+    return Math.max(headerLen + subHeaderLen, 5);
+  });
+
+  const totalWeight = slideWeights.reduce((a, b) => a + b, 0);
+
+  // 2. Compute cumulative proportion thresholds (ideal transition ratios)
+  const idealTransitions: number[] = [];
+  let cumulativeWeight = 0;
+  for (let i = 0; i < slides.length - 1; i++) {
+    cumulativeWeight += slideWeights[i];
+    idealTransitions.push((cumulativeWeight / totalWeight) * audioDuration);
+  }
+
+  // 3. For each ideal transition, find the nearest silence gap and snap to its center/start
+  const transitionTimestamps: number[] = [0]; // First slide always starts at 0
+
+  for (const idealTime of idealTransitions) {
+    if (silenceGaps.length === 0) {
+      // Fallback: simple linear proportion if no silence gaps
+      transitionTimestamps.push(idealTime);
+      continue;
+    }
+
+    // Find the silence gap whose center is closest to the ideal transition time
+    let bestGap: SilenceGap | null = null;
+    let minDistance = Infinity;
+
+    for (const gap of silenceGaps) {
+      const gapCenter = (gap.start + gap.end) / 2;
+      const dist = Math.abs(gapCenter - idealTime);
+      if (dist < minDistance) {
+        minDistance = dist;
+        bestGap = gap;
+      }
+    }
+
+    if (bestGap && minDistance < 5.0) {
+      // Snap to the center of the silence gap
+      const snapTime = (bestGap.start + bestGap.end) / 2;
+      transitionTimestamps.push(snapTime);
+    } else {
+      // If no gap is nearby (within 5 seconds), use the ideal proportional time
+      transitionTimestamps.push(idealTime);
+    }
+  }
+
+  // Ensure timestamps are strictly increasing and within bounds
+  for (let i = 1; i < transitionTimestamps.length; i++) {
+    if (transitionTimestamps[i] <= transitionTimestamps[i - 1]) {
+      transitionTimestamps[i] = transitionTimestamps[i - 1] + 0.1;
+    }
+  }
+
+  // Ensure last transition doesn't exceed duration
+  for (let i = 1; i < transitionTimestamps.length; i++) {
+    if (transitionTimestamps[i] >= audioDuration) {
+      transitionTimestamps[i] = audioDuration - (transitionTimestamps.length - i) * 0.1;
+    }
+  }
+
+  return transitionTimestamps;
+}
+
+/**
+ * Helper to clean brackets and quotation marks so they are not read by the TTS voice.
+ * Also normalizes common typo characters like Korean particle '의' to Japanese 'の'.
+ */
+function cleanTextForTts(text: string): string {
+  // Replace quotation marks and brackets with spaces
+  let cleaned = text.replace(/[「」『』"'\(\)\[\]\{\}（）<>＜＞《》【】]/g, ' ');
+  
+  // Replace Korean particle '의' with Japanese 'の' to prevent voice crashes
+  cleaned = cleaned.replace(/의/g, 'の');
+  
+  // Clean up CJK punctuation symbols
+  cleaned = cleaned.replace(/[・＝★▲◆●■•·]/g, ' ');
+  
+  return cleaned.replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Helper to split a string into separate English and Japanese segments.
+ * For example: "very cold の代わりに使うネイティブ表現" ->
+ *   [{ text: "very cold", lang: "en" }, { text: "の代わりに使うネイティブ表現", lang: "ja" }]
+ */
+function splitTextByLanguage(text: string): { text: string; lang: 'ja' | 'en' }[] {
+  const trimmed = text.trim();
+  if (!trimmed) return [];
+
+  // Split by CJK character runs (Japanese Kanji, Hiragana, Katakana, and CJK punctuation)
+  const parts = trimmed.split(/([\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uff00-\uffef]+)/g);
+  
+  const segments: { text: string; lang: 'ja' | 'en' }[] = [];
+  for (const part of parts) {
+    if (!part) continue;
+    
+    const isJap = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uff00-\uffef]/.test(part);
+    const cleanPart = part.trim();
+    if (!cleanPart) continue;
+
+    segments.push({
+      text: cleanPart,
+      lang: isJap ? 'ja' : 'en'
+    });
+  }
+  return segments;
+}
+
+/**
+ * Helper to fetch local VOICEVOX neural speech synthesis (speaker 2: Shikoku Metan, speaker 3: Zundamon).
+ * Runs completely locally on the user's computer with zero cost and high-quality, expressive voices.
+ */
+async function fetchVoiceVoxClip(text: string, speakerId: number, audioCtx: AudioContext): Promise<AudioBuffer | null> {
+  try {
+    // 1. Generate audio query JSON
+    const queryUrl = `http://localhost:5021/audio_query?text=${encodeURIComponent(text)}&speaker=${speakerId}`;
+    const queryRes = await fetch(queryUrl, { method: 'POST' });
+    if (!queryRes.ok) return null;
+    const queryJson = await queryRes.json();
+
+    // 2. Synthesize WAV audio
+    const synthUrl = `http://localhost:5021/synthesis?speaker=${speakerId}`;
+    const synthRes = await fetch(synthUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(queryJson)
+    });
+    if (!synthRes.ok) return null;
+
+    const arrayBuffer = await synthRes.arrayBuffer();
+    return await audioCtx.decodeAudioData(arrayBuffer);
+  } catch (e) {
+    // VOICEVOX not running, return null to fallback
+    return null;
+  }
+}
+
+/**
+ * Resamples an AudioBuffer to increase its playback speed.
+ * This changes the duration and speed of the segment.
+ */
+function speedUpAudioBuffer(buffer: AudioBuffer, speed: number, audioCtx: AudioContext): AudioBuffer {
+  const sourceData = buffer.getChannelData(0);
+  const newLength = Math.floor(sourceData.length / speed);
+  const newBuffer = audioCtx.createBuffer(1, newLength, buffer.sampleRate);
+  const newData = newBuffer.getChannelData(0);
+  
+  for (let i = 0; i < newLength; i++) {
+    const pos = i * speed;
+    const index = Math.floor(pos);
+    const fraction = pos - index;
+    
+    if (index + 1 < sourceData.length) {
+      newData[i] = sourceData[index] * (1 - fraction) + sourceData[index + 1] * fraction;
+    } else {
+      newData[i] = sourceData[index] || 0;
+    }
+  }
+  return newBuffer;
+}
+
+/**
+ * Helper to fetch cloud Google Translate TTS.
+ */
+async function fetchGoogleTtsClip(text: string, lang: 'ja' | 'en', audioCtx: AudioContext): Promise<AudioBuffer> {
+  const url = `/api-tts/translate_tts?ie=UTF-8&tl=${lang}&client=tw-ob&q=${encodeURIComponent(text.substring(0, 200))}`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`Google TTS endpoint responded with status ${res.status}`);
+  }
+  const arrayBuffer = await res.arrayBuffer();
+  return await audioCtx.decodeAudioData(arrayBuffer);
+}
+
+/**
+ * Fetches and decodes a single string clip, splitting it into CJK and English segments
+ * if they are mixed, requesting local VOICEVOX neural speech (Japanese) if active,
+ * otherwise falling back to Google Translate TTS, and joining them together.
+ */
+async function fetchTtsClip(text: string, audioCtx: AudioContext, useVoiceVox: boolean): Promise<AudioBuffer | null> {
+  const cleaned = cleanTextForTts(text);
+  const segments = splitTextByLanguage(cleaned);
+  if (segments.length === 0) return null;
+
+  const segmentBuffers: AudioBuffer[] = [];
+  const sampleRate = audioCtx.sampleRate;
+
+  for (const seg of segments) {
+    let buf: AudioBuffer | null = null;
+    
+    if (seg.lang === 'ja') {
+      if (useVoiceVox) {
+        // 1. Try local VOICEVOX (speaker 2: Shikoku Metan)
+        buf = await fetchVoiceVoxClip(seg.text, 2, audioCtx);
+      }
+      // 2. Fallback to Google Translate Japanese if VOICEVOX is disabled or fails
+      if (!buf) {
+        buf = await fetchGoogleTtsClip(seg.text, 'ja', audioCtx);
+      }
+      
+      // Speed up Japanese segments by 1.30x to sound energetic and fast-paced
+      if (buf) {
+        buf = speedUpAudioBuffer(buf, 1.30, audioCtx);
+      }
+    } else {
+      // English segment
+      buf = await fetchGoogleTtsClip(seg.text, 'en', audioCtx);
+    }
+
+    if (buf) {
+      segmentBuffers.push(buf);
+    }
+  }
+
+  if (segmentBuffers.length === 1) {
+    return segmentBuffers[0];
+  }
+
+  // Concatenate multiple language segments for a single line with small pauses (0.15 seconds)
+  let totalDuration = 0;
+  const positions: number[] = [];
+  
+  for (let i = 0; i < segmentBuffers.length; i++) {
+    positions.push(totalDuration);
+    totalDuration += segmentBuffers[i].duration;
+    if (i < segmentBuffers.length - 1) {
+      totalDuration += 0.15; // 150ms segment pause
+    }
+  }
+
+  const combinedLen = Math.max(1, Math.floor(totalDuration * sampleRate));
+  const combinedBuffer = audioCtx.createBuffer(1, combinedLen, sampleRate);
+  const combinedData = combinedBuffer.getChannelData(0);
+
+  for (let i = 0; i < segmentBuffers.length; i++) {
+    const buf = segmentBuffers[i];
+    const startSample = Math.floor(positions[i] * sampleRate);
+    const data = buf.getChannelData(0);
+    
+    for (let j = 0; j < data.length; j++) {
+      if (startSample + j < combinedData.length) {
+        combinedData[startSample + j] = data[j];
+      }
+    }
+  }
+
+  return combinedBuffer;
+}
+
+/**
+ * Generates automated TTS narration audio and slide transition timestamps.
+ * Speaks English segments with a US English voice and Japanese segments with a Japanese voice.
+ */
+export async function generateTtsNarration(
+  slides: any[],
+  audioCtx: AudioContext,
+  useVoiceVox: boolean = false
+): Promise<{ buffer: AudioBuffer; timestamps: number[] }> {
+  const buffers: AudioBuffer[] = [];
+  const timestamps: number[] = [0];
+  const sampleRate = audioCtx.sampleRate;
+
+  // 1. Fetch, translate, and merge segments slide-by-slide
+  for (let i = 0; i < slides.length; i++) {
+    const slide = slides[i];
+
+    const isLastSlide = (i === slides.length - 1);
+    // Fetch individual components separately for language purity
+    const headerBuf = await fetchTtsClip(slide.header || '', audioCtx, useVoiceVox);
+    // Skip reading the sub-header for the final CTA slide
+    const subHeaderBuf = isLastSlide ? null : await fetchTtsClip(slide.sub_header || '', audioCtx, useVoiceVox);
+    
+    // Calculate total duration for this slide's voice track
+    let slideVoiceDuration = 0;
+    const segments: { buffer: AudioBuffer; startOffset: number }[] = [];
+
+    if (headerBuf) {
+      segments.push({ buffer: headerBuf, startOffset: slideVoiceDuration });
+      slideVoiceDuration += headerBuf.duration + 0.35; // 350ms pause after header
+    }
+
+    if (subHeaderBuf) {
+      segments.push({ buffer: subHeaderBuf, startOffset: slideVoiceDuration });
+      slideVoiceDuration += subHeaderBuf.duration + 0.45; // 450ms pause after sub-header
+    }
+
+    // Create a merged single AudioBuffer for this slide
+    const slideCombinedLen = Math.max(1, Math.floor(slideVoiceDuration * sampleRate));
+    const slideCombinedBuffer = audioCtx.createBuffer(1, slideCombinedLen, sampleRate);
+    const slideCombinedData = slideCombinedBuffer.getChannelData(0);
+
+    // Copy segment samples into slide buffer
+    for (const seg of segments) {
+      const startSample = Math.floor(seg.startOffset * sampleRate);
+      const data = seg.buffer.getChannelData(0);
+      for (let j = 0; j < data.length; j++) {
+        if (startSample + j < slideCombinedData.length) {
+          slideCombinedData[startSample + j] = data[j];
+        }
+      }
+    }
+
+    buffers.push(slideCombinedBuffer);
+  }
+
+  // 2. Compute transition timestamps dynamically based on merged slide voice durations
+  let currentOffset = 0;
+  for (let i = 0; i < slides.length - 1; i++) {
+    const buffer = buffers[i];
+    // Next slide starts after voice concludes, plus 0.4 seconds of screen time for rapid transitions
+    currentOffset += buffer.duration + 0.4;
+    timestamps.push(currentOffset);
+  }
+
+  // 3. Compute total length of combined narration track
+  const lastBuffer = buffers[buffers.length - 1];
+  const totalDuration = currentOffset + (lastBuffer ? lastBuffer.duration : 4.0) + 0.4;
+  
+  // Create combined single channel AudioBuffer
+  const combinedBuffer = audioCtx.createBuffer(1, Math.floor(totalDuration * sampleRate), sampleRate);
+  const combinedData = combinedBuffer.getChannelData(0);
+
+  // 4. Merge slide audio buffers into the master timeline channel
+  for (let i = 0; i < slides.length; i++) {
+    const buffer = buffers[i];
+    const startSample = Math.floor(timestamps[i] * sampleRate);
+    const channelData = buffer.getChannelData(0);
+    
+    for (let j = 0; j < channelData.length; j++) {
+      if (startSample + j < combinedData.length) {
+        combinedData[startSample + j] = channelData[j];
+      }
+    }
+  }
+
+  return {
+    buffer: combinedBuffer,
+    timestamps
+  };
+}
