@@ -204,14 +204,14 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   }, [slides, thinkingStatus, title, hook, videoLoaded]);
 
   return (
-    <div className="flex flex-col items-center gap-4">
+    <div className="preview-container">
       {/* 9:16 aspect preview frame */}
-      <div className="relative w-[300px] h-[533px] sm:w-[324px] sm:h-[576px] rounded-3xl overflow-hidden border border-slate-700 shadow-2xl bg-slate-950 flex justify-center items-center group">
+      <div className="preview-frame">
         <canvas
           ref={canvasRef}
           width={720}
           height={1280}
-          className="w-full h-full block object-cover"
+          className="preview-canvas"
         />
 
         {/* Hidden video element for canvas source */}
@@ -231,32 +231,32 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
 
         {/* Layout indicator overlays */}
         {slides.length > 0 && (
-          <div className="absolute top-4 right-4 bg-slate-900/80 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold text-indigo-400 border border-indigo-500/20 select-none">
+          <div className="preview-indicator">
             {slides[thinkingStatus.activeIdx]?.layout.toUpperCase()}
           </div>
         )}
       </div>
 
       {/* Control buttons */}
-      <div className="flex items-center gap-4 bg-slate-900/80 backdrop-blur-md border border-slate-800 rounded-full px-6 py-2 shadow-lg">
+      <div className="preview-controls">
         <button
           onClick={onRestart}
           title="Restart Playback"
-          className="p-2 text-slate-400 hover:text-slate-200 transition-colors"
+          className="preview-btn-icon"
         >
           <RotateCcw size={20} />
         </button>
 
         <button
           onClick={onTogglePlay}
-          className="bg-indigo-600 hover:bg-indigo-500 text-white rounded-full p-3 shadow-md hover:shadow-indigo-500/20 transition-all flex items-center justify-center transform hover:scale-105 active:scale-95"
+          className="preview-btn-play"
         >
           {isPlaying ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" className="ml-1" />}
         </button>
 
-        <div className="flex items-center gap-1.5 text-slate-400" title="Audio Output Status">
+        <div className="preview-audio-status" title="Audio Output Status">
           <Volume2 size={20} />
-          <span className="text-[10px] font-bold font-mono">STEREO</span>
+          <span className="preview-audio-label">STEREO</span>
         </div>
       </div>
     </div>
