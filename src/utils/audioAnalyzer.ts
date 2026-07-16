@@ -266,8 +266,9 @@ async function fetchGoogleTtsClip(text: string, lang: 'ja' | 'en', audioCtx: Aud
   if (isLocal) {
     url = `/api-tts/translate_tts?ie=UTF-8&tl=${lang}&client=tw-ob&q=${encodeURIComponent(text.substring(0, 200))}`;
   } else {
-    // In production, bypass local dev proxy with corsproxy.io
-    const target = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${lang}&client=tw-ob&q=${encodeURIComponent(text.substring(0, 200))}`;
+    // In production, bypass Google Translate blocks by using Youdao dictvoice via corsproxy.io
+    const le = lang === 'ja' ? 'jap' : 'eng';
+    const target = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(text.substring(0, 200))}&le=${le}`;
     url = `https://corsproxy.io/?${encodeURIComponent(target)}`;
   }
 
