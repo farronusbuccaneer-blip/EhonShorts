@@ -5,6 +5,10 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   base: '/EhonShorts/',
   plugins: [react()],
+  build: {
+    outDir: 'docs',
+    emptyOutDir: true,
+  },
   server: {
     proxy: {
       '/api-tts': {
