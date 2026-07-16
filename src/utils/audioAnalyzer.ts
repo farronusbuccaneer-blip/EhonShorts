@@ -260,7 +260,17 @@ function speedUpAudioBuffer(buffer: AudioBuffer, speed: number, audioCtx: AudioC
  * Helper to fetch cloud Google Translate TTS.
  */
 async function fetchGoogleTtsClip(text: string, lang: 'ja' | 'en', audioCtx: AudioContext): Promise<AudioBuffer> {
-  const url = `/api-tts/translate_tts?ie=UTF-8&tl=${lang}&client=tw-ob&q=${encodeURIComponent(text.substring(0, 200))}`;
+  const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  let url = '';
+  
+  if (isLocal) {
+    url = `/api-tts/translate_tts?ie=UTF-8&tl=${lang}&client=tw-ob&q=${encodeURIComponent(text.substring(0, 200))}`;
+  } else {
+    // In production, bypass local dev proxy with corsproxy.io
+    const target = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${lang}&client=tw-ob&q=${encodeURIComponent(text.substring(0, 200))}`;
+    url = `https://corsproxy.io/?${encodeURIComponent(target)}`;
+  }
+
   const res = await fetch(url);
   if (!res.ok) {
     throw new Error(`Google TTS endpoint responded with status ${res.status}`);
