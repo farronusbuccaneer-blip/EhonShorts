@@ -114,6 +114,7 @@ export async function exportVideo(params: ExportParams): Promise<Blob> {
   // 2. Setup Web Audio API destination for recording
   const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
   const audioCtx = new AudioContextClass();
+  await audioCtx.resume(); // Enforce activation so currentTime advances
   const dest = audioCtx.createMediaStreamDestination();
 
   // Play narration source
@@ -230,6 +231,7 @@ export async function exportVideo(params: ExportParams): Promise<Blob> {
         if (videoEl) videoEl.pause();
         audioCtx.close();
         cancelAnimationFrame(animationId);
+        clearTimeout(animationId);
         onProgress(100);
 
         mediaRecorder.onstop = () => {
@@ -287,11 +289,20 @@ export async function exportVideo(params: ExportParams): Promise<Blob> {
       const progressPercent = Math.floor((elapsed / totalDuration) * 100);
       onProgress(Math.min(99, progressPercent));
 
-      animationId = requestAnimationFrame(renderFrame);
+      // Use requestAnimationFrame for active tabs, fallback to setTimeout for hidden/background tabs
+      if (document.hidden) {
+        animationId = window.setTimeout(renderFrame, 33) as any;
+      } else {
+        animationId = requestAnimationFrame(renderFrame);
+      }
     }
 
     // Start loop
-    animationId = requestAnimationFrame(renderFrame);
+    if (document.hidden) {
+      animationId = window.setTimeout(renderFrame, 33) as any;
+    } else {
+      animationId = requestAnimationFrame(renderFrame);
+    }
   });
 
   return renderPromise;
