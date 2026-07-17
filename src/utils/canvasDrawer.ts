@@ -51,8 +51,8 @@ export function wrapText(
   maxWidth: number
 ): string[] {
   const tokens: string[] = [];
-  // Tokenize, including XML tags as separate tokens
-  const regex = /(<\/?[a-zA-Z]+>|[a-zA-Z0-9'’]+|\s+|[「」『』()（）<>＜＞《》【】!?,.！？，．]|[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uff00-\uffef]|[^\w\s\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uff00-\uffef])/g;
+  // Tokenize, keeping <yellow>...</yellow> and <red>...</red> blocks whole as atomic tokens
+  const regex = /(<yellow>[\s\S]*?<\/yellow>|<red>[\s\S]*?<\/red>|<\/?[a-zA-Z]+>|[a-zA-Z0-9'’]+|\s+|[「」『』()（）<>＜＞《》【】!?,.！？，．]|[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uff00-\uffef]|[^\w\s\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uff00-\uffef])/gi;
   
   let match;
   while ((match = regex.exec(text)) !== null) {
