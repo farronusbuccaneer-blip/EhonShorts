@@ -135,41 +135,29 @@ export function drawCenteredStyledLine(
   
   let curX = (width - totalW) / 2;
   
-  // Height and vertical offset scaled to font size
-  const bannerH = fontSize * 1.15;
-  const bannerYOffset = fontSize * 0.92;
+  ctx.strokeStyle = '#000000';
+  ctx.lineWidth = Math.max(3, fontSize * 0.12);
+  ctx.lineJoin = 'round';
+  ctx.miterLimit = 2;
   
   segments.forEach((seg, idx) => {
     const w = segmentWidths[idx];
     
+    ctx.save();
+    ctx.font = defaultFont;
+    ctx.textAlign = 'left';
+    
     if (seg.style === 'yellow') {
-      ctx.save();
-      ctx.fillStyle = '#facc15'; // Bright yellow banner
-      drawRoundedRect(ctx, curX - 6, y - bannerYOffset, w + 12, bannerH, 8, '#facc15');
-      ctx.font = defaultFont;
-      ctx.fillStyle = '#0f172a'; // Black text
-      ctx.shadowBlur = 0; // No glow shadow on highlights
-      ctx.textAlign = 'left';
-      ctx.fillText(seg.text, curX, y);
-      ctx.restore();
+      ctx.fillStyle = '#facc15';
     } else if (seg.style === 'red') {
-      ctx.save();
-      ctx.fillStyle = '#ef4444'; // Bright red banner
-      drawRoundedRect(ctx, curX - 6, y - bannerYOffset, w + 12, bannerH, 8, '#ef4444');
-      ctx.font = defaultFont;
-      ctx.fillStyle = '#ffffff'; // White text
-      ctx.shadowBlur = 0;
-      ctx.textAlign = 'left';
-      ctx.fillText(seg.text, curX, y);
-      ctx.restore();
+      ctx.fillStyle = '#ef4444';
     } else {
-      ctx.save();
-      ctx.font = defaultFont;
       ctx.fillStyle = defaultColor;
-      ctx.textAlign = 'left';
-      ctx.fillText(seg.text, curX, y);
-      ctx.restore();
     }
+    
+    ctx.strokeText(seg.text, curX, y);
+    ctx.fillText(seg.text, curX, y);
+    ctx.restore();
     
     curX += w;
   });
@@ -192,40 +180,29 @@ export function drawLeftAlignedStyledLine(
   ctx.font = defaultFont;
   
   let curX = x;
-  const bannerH = fontSize * 1.15;
-  const bannerYOffset = fontSize * 0.92;
+  ctx.strokeStyle = '#000000';
+  ctx.lineWidth = Math.max(3, fontSize * 0.12);
+  ctx.lineJoin = 'round';
+  ctx.miterLimit = 2;
   
   segments.forEach(seg => {
     const w = ctx.measureText(seg.text).width;
     
+    ctx.save();
+    ctx.font = defaultFont;
+    ctx.textAlign = 'left';
+    
     if (seg.style === 'yellow') {
-      ctx.save();
       ctx.fillStyle = '#facc15';
-      drawRoundedRect(ctx, curX - 4, y - bannerYOffset, w + 8, bannerH, 6, '#facc15');
-      ctx.font = defaultFont;
-      ctx.fillStyle = '#0f172a';
-      ctx.shadowBlur = 0;
-      ctx.textAlign = 'left';
-      ctx.fillText(seg.text, curX, y);
-      ctx.restore();
     } else if (seg.style === 'red') {
-      ctx.save();
       ctx.fillStyle = '#ef4444';
-      drawRoundedRect(ctx, curX - 4, y - bannerYOffset, w + 8, bannerH, 6, '#ef4444');
-      ctx.font = defaultFont;
-      ctx.fillStyle = '#ffffff';
-      ctx.shadowBlur = 0;
-      ctx.textAlign = 'left';
-      ctx.fillText(seg.text, curX, y);
-      ctx.restore();
     } else {
-      ctx.save();
-      ctx.font = defaultFont;
       ctx.fillStyle = defaultColor;
-      ctx.textAlign = 'left';
-      ctx.fillText(seg.text, curX, y);
-      ctx.restore();
     }
+    
+    ctx.strokeText(seg.text, curX, y);
+    ctx.fillText(seg.text, curX, y);
+    ctx.restore();
     
     curX += w;
   });
@@ -373,7 +350,7 @@ export function drawSlideFrame(
     ctx.scale(scaleFactor, scaleFactor);
     ctx.translate(-textCenterX, -textCenterY);
 
-    ctx.font = 'bold 52px "Fredoka", sans-serif';
+    ctx.font = 'bold 76px "Fredoka", sans-serif';
     ctx.textAlign = 'center';
     
     // Animate gradient colors dynamically in a cycle
@@ -389,7 +366,7 @@ export function drawSlideFrame(
     ctx.shadowBlur = 15 + 6 * Math.sin(slideElapsed * 6.5);
     
     const headerLines = wrapText(ctx, slide.header || '', cardW - 60);
-    let startY = cardY + 95 - ((headerLines.length - 1) * 28);
+    let startY = cardY + 115 - ((headerLines.length - 1) * 38);
 
     // Dynamic RGB Chromatic Aberration Pop on entrance
     if (slideElapsed < 0.5) {
@@ -404,7 +381,7 @@ export function drawSlideFrame(
       let syCyan = startY;
       for (const line of headerLines) {
         ctx.fillText(line.replace(/<\/?[a-zA-Z]+>/g, ''), width / 2 + gx, syCyan + gy);
-        syCyan += 62;
+        syCyan += 86;
       }
       ctx.restore();
 
@@ -415,7 +392,7 @@ export function drawSlideFrame(
       let syMag = startY;
       for (const line of headerLines) {
         ctx.fillText(line.replace(/<\/?[a-zA-Z]+>/g, ''), width / 2 - gx, syMag - gy);
-        syMag += 62;
+        syMag += 86;
       }
       ctx.restore();
     }
@@ -425,12 +402,12 @@ export function drawSlideFrame(
         ctx,
         line,
         startY,
-        'bold 52px "Fredoka", sans-serif',
+        'bold 76px "Fredoka", sans-serif',
         textGrad as any,
         width,
-        52
+        76
       );
-      startY += 62;
+      startY += 86;
     }
     ctx.restore();
     
@@ -440,23 +417,23 @@ export function drawSlideFrame(
     ctx.translate(0, 30 * (1 - subEase));
 
     ctx.shadowBlur = 0;
-    ctx.font = '500 34px "Zen Maru Gothic", sans-serif';
+    ctx.font = '500 48px "Zen Maru Gothic", sans-serif';
     ctx.fillStyle = '#e2e8f0';
     ctx.textAlign = 'center';
     
     const subLines = wrapText(ctx, slide.sub_header || '', cardW - 60);
-    let subY = cardY + 235;
+    let subY = cardY + 245;
     for (const line of subLines) {
       drawCenteredStyledLine(
         ctx,
         line,
         subY,
-        '500 34px "Zen Maru Gothic", sans-serif',
+        '500 48px "Zen Maru Gothic", sans-serif',
         '#e2e8f0',
         width,
-        34
+        48
       );
-      subY += 46;
+      subY += 60;
     }
     ctx.restore();
 
@@ -465,7 +442,7 @@ export function drawSlideFrame(
       ctx.save();
       ctx.globalAlpha = subEase;
       
-      const hookFontSize = 34;
+      const hookFontSize = 38;
       const hookFont = `bold ${hookFontSize}px "Zen Maru Gothic", sans-serif`;
       ctx.font = hookFont;
       
@@ -474,12 +451,12 @@ export function drawSlideFrame(
       const hookLines = wrapText(ctx, hook, maxTextW);
       
       // Calculate dynamic box size
-      const lineHeight = hookFontSize + 12; // 46px
-      const paddingY = 18;
+      const lineHeight = hookFontSize + 12; // 50px
+      const paddingY = 16;
       const hookBoxH = hookLines.length * lineHeight + paddingY * 2;
       const hookBoxW = width - 80;
       const hookBoxX = 40;
-      const hookBoxY = 105;
+      const hookBoxY = 100;
       
       // Draw premium gradient banner for maximum hook impact
       drawRoundedRect(
@@ -513,7 +490,6 @@ export function drawSlideFrame(
       }
       ctx.restore();
     }
-
   } else if (layout === 'list_layout') {
     const headerY = 160;
     const tVal = Math.min(1, slideElapsed / 0.45);
@@ -529,7 +505,7 @@ export function drawSlideFrame(
     ctx.translate(-width / 2, -headerY);
 
     ctx.textAlign = 'center';
-    ctx.font = 'bold 52px "Fredoka", sans-serif';
+    ctx.font = 'bold 76px "Fredoka", sans-serif';
     
     const hueShift = (slideElapsed * 80) % 360;
     const grad = ctx.createLinearGradient(40, headerY, width - 40, headerY);
@@ -563,10 +539,10 @@ export function drawSlideFrame(
       ctx,
       slide.header || '',
       headerY,
-      'bold 52px "Fredoka", sans-serif',
+      'bold 76px "Fredoka", sans-serif',
       grad as any,
       width,
-      52
+      76
     );
     ctx.restore();
 
@@ -593,7 +569,7 @@ export function drawSlideFrame(
     );
 
     // Subheader text
-    ctx.font = '500 38px "Zen Maru Gothic", sans-serif';
+    ctx.font = '500 48px "Zen Maru Gothic", sans-serif';
     ctx.fillStyle = '#f1f5f9';
     ctx.textAlign = 'center';
     const subLines = wrapText(ctx, slide.sub_header || '', cardW - 65);
@@ -603,12 +579,12 @@ export function drawSlideFrame(
         ctx,
         line,
         subY,
-        '500 38px "Zen Maru Gothic", sans-serif',
+        '500 48px "Zen Maru Gothic", sans-serif',
         '#f1f5f9',
         width,
-        38
+        48
       );
-      subY += 52;
+      subY += 60;
     }
     ctx.restore();
 
@@ -629,7 +605,7 @@ export function drawSlideFrame(
     ctx.translate(-width / 2, -headerY);
     
     ctx.textAlign = 'center';
-    ctx.font = 'bold 50px "Fredoka", sans-serif';
+    ctx.font = 'bold 60px "Fredoka", sans-serif';
     ctx.fillStyle = '#f59e0b';
     ctx.shadowColor = 'rgba(245, 158, 11, 0.6)';
     ctx.shadowBlur = 12 + 4 * Math.sin(slideElapsed * 6.5);
@@ -640,7 +616,7 @@ export function drawSlideFrame(
     ctx.save();
     ctx.globalAlpha = subEase;
     ctx.translate(0, -15 * (1 - subEase));
-    ctx.font = '600 38px "Zen Maru Gothic", sans-serif';
+    ctx.font = '600 54px "Zen Maru Gothic", sans-serif';
     ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'center';
     
@@ -651,22 +627,22 @@ export function drawSlideFrame(
         ctx,
         line,
         qY,
-        '600 38px "Zen Maru Gothic", sans-serif',
+        '600 54px "Zen Maru Gothic", sans-serif',
         '#ffffff',
         width,
-        38
+        54
       );
-      qY += 48;
+      qY += 66;
     }
     ctx.restore();
 
-    // Draw Sub-header Question Prompt (e.g. "very hungry より『極限の 飢え』を表す表現はどっち？")
+    // Draw Sub-header Question Prompt (e.g. "very hungry より『極限の飢え』を表す表現はどっち？")
     let promptY = qY;
     if (slide.sub_header) {
       ctx.save();
       ctx.globalAlpha = subEase;
       ctx.translate(0, 10 * (1 - subEase));
-      ctx.font = '500 28px "Zen Maru Gothic", sans-serif';
+      ctx.font = '500 40px "Zen Maru Gothic", sans-serif';
       ctx.fillStyle = '#cbd5e1'; // Warm white-gray
       ctx.textAlign = 'center';
       
@@ -680,12 +656,12 @@ export function drawSlideFrame(
           ctx,
           line,
           promptY,
-          '500 28px "Zen Maru Gothic", sans-serif',
+          '500 40px "Zen Maru Gothic", sans-serif',
           '#cbd5e1',
           width,
-          28
+          40
         );
-        promptY += 38;
+        promptY += 52;
       }
       ctx.restore();
     }
@@ -693,7 +669,7 @@ export function drawSlideFrame(
     // Draw choices staggered animation
     const choices = slide.choices || [];
     const buttonW = width - 100;
-    const buttonH = 74;
+    const buttonH = 94; // increased to 94 to hold 38px text
     const buttonX = 50;
     const startButtonY = promptY + 25;
 
@@ -720,20 +696,20 @@ export function drawSlideFrame(
         1.5
       );
 
-      ctx.font = 'bold 26px "Fredoka", sans-serif';
+      ctx.font = 'bold 36px "Fredoka", sans-serif';
       ctx.fillStyle = '#f59e0b';
       ctx.textAlign = 'left';
-      ctx.fillText(`${idx + 1}`, buttonX + 25, bY + 46);
+      ctx.fillText(`${idx + 1}`, buttonX + 25, bY + 58);
 
       // Draw choice text with left-aligned styled renderer
       drawLeftAlignedStyledLine(
         ctx,
         choice,
-        buttonX + 60,
-        bY + 46,
-        '500 26px "Zen Maru Gothic", sans-serif',
+        buttonX + 75,
+        bY + 58,
+        '500 38px "Zen Maru Gothic", sans-serif',
         '#e2e8f0',
-        26
+        38
       );
       ctx.restore();
     });
@@ -899,7 +875,7 @@ export function drawSlideFrame(
     ctx.translate(-width / 2, -headerY);
     
     ctx.textAlign = 'center';
-    ctx.font = 'bold 50px "Fredoka", sans-serif';
+    ctx.font = 'bold 60px "Fredoka", sans-serif';
     ctx.fillStyle = '#10b981'; // Emerald Green
     ctx.shadowColor = 'rgba(16, 185, 129, 0.6)';
     ctx.shadowBlur = 12 + 4 * Math.sin(slideElapsed * 6.5);
@@ -910,7 +886,7 @@ export function drawSlideFrame(
     ctx.save();
     ctx.globalAlpha = subEase;
     ctx.translate(0, -15 * (1 - subEase));
-    ctx.font = '600 38px "Zen Maru Gothic", sans-serif';
+    ctx.font = '600 54px "Zen Maru Gothic", sans-serif';
     ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'center';
     const explanationLines = wrapText(ctx, slide.header || '', width - 80);
@@ -920,12 +896,12 @@ export function drawSlideFrame(
         ctx,
         line,
         eY,
-        '600 38px "Zen Maru Gothic", sans-serif',
+        '600 54px "Zen Maru Gothic", sans-serif',
         '#ffffff',
         width,
-        38
+        54
       );
-      eY += 48;
+      eY += 66;
     }
     ctx.restore();
 
@@ -933,7 +909,7 @@ export function drawSlideFrame(
     const choices = slide.choices || [];
     const answer = slide.answer || '';
     const buttonW = width - 100;
-    const buttonH = 74;
+    const buttonH = 94; // increased to 94 to hold 38px text
     const buttonX = 50;
     const startButtonY = eY + 20;
 
@@ -957,23 +933,23 @@ export function drawSlideFrame(
 
       ctx.textAlign = 'left';
       if (isCorrect) {
-        ctx.font = 'bold 30px "Fredoka", sans-serif';
+        ctx.font = 'bold 36px "Fredoka", sans-serif';
         ctx.fillStyle = '#10b981';
-        ctx.fillText("✓", buttonX + 25, bY + 46);
+        ctx.fillText("✓", buttonX + 25, bY + 58);
       } else {
-        ctx.font = 'bold 26px "Fredoka", sans-serif';
+        ctx.font = 'bold 36px "Fredoka", sans-serif';
         ctx.fillStyle = '#64748b';
-        ctx.fillText(`${idx + 1}`, buttonX + 25, bY + 46);
+        ctx.fillText(`${idx + 1}`, buttonX + 25, bY + 58);
       }
 
       drawLeftAlignedStyledLine(
         ctx,
         choice,
-        buttonX + 60,
-        bY + 46,
-        '500 26px "Zen Maru Gothic", sans-serif',
+        buttonX + 75,
+        bY + 58,
+        '500 38px "Zen Maru Gothic", sans-serif',
         isCorrect ? '#ffffff' : '#94a3b8',
-        26
+        38
       );
       ctx.restore();
     });
@@ -989,7 +965,7 @@ export function drawSlideFrame(
 
       const subCardY = startButtonY + choices.length * (buttonH + 20) + 15;
       const subW = width - 100;
-      const subH = 165;
+      const subH = 200; // expanded to 200 to fit larger text
       const subX = 50;
 
       drawRoundedRect(
@@ -1004,24 +980,24 @@ export function drawSlideFrame(
         1
       );
 
-      ctx.font = '500 25px "Zen Maru Gothic", sans-serif';
+      ctx.font = '500 36px "Zen Maru Gothic", sans-serif';
       ctx.fillStyle = '#cbd5e1';
       ctx.textAlign = 'left';
 
-      const descLines = wrapText(ctx, slide.sub_header, subW - 30);
-      let descY = subCardY + 42;
+      const descLines = wrapText(ctx, slide.sub_header, subW - 40);
+      let descY = subCardY + 54;
       for (const line of descLines) {
         if (descY < subCardY + subH - 10) {
           drawLeftAlignedStyledLine(
             ctx,
             line,
-            subX + 20,
+            subX + 25,
             descY,
-            '500 25px "Zen Maru Gothic", sans-serif',
+            '500 36px "Zen Maru Gothic", sans-serif',
             '#cbd5e1',
-            25
+            36
           );
-          descY += 34;
+          descY += 46;
         }
       }
       ctx.restore();
