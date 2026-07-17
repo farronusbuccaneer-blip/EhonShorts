@@ -92,27 +92,27 @@ export const DEFAULT_MARKDOWN = `<title>Stop VERY!</title>
 
 <slide1>
 <layout>hook_layout</layout>
-<header>Stop Saying VERY!</header>
+<header>Stop Saying <yellow>VERY!</yellow></header>
 <sub_header>こればかり使うと初心者っぽい？</sub_header>
 </slide1>
 
 <slide2>
 <layout>list_layout</layout>
-<header>1. Freezing</header>
+<header>1. <red>Freezing</red></header>
 <sub_header>very cold の代わりに使うネイティブ表現</sub_header>
 </slide2>
 
 <slide3>
 <layout>quiz_question</layout>
-<header>2. Starving</header>
-<sub_header>very hungry より『極限의 飢え』を表す表現はどっち？</sub_header>
+<header>2. <yellow>Starving</yellow></header>
+<sub_header>very hungry より『極限の飢え』を表す表現はどっち？</sub_header>
 <choices>["Starving", "Dying"]</choices>
 <answer>Starving</answer>
 </slide3>
 
 <slide4>
 <layout>quiz_answer</layout>
-<header>正解は Starving!</header>
+<header>正解は <yellow>Starving!</yellow></header>
 <sub_header>I am starving! で「お腹ペコペコ！」と使えます</sub_header>
 </slide4>
 
