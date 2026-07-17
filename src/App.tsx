@@ -11,7 +11,7 @@ import { WaveformTimeline } from './components/WaveformTimeline';
 import { 
   Film, Music, FileText, Download, 
   AlertTriangle, Check, Sparkles, 
-  Waves, Sliders 
+  Waves, Sliders, Mic, Copy
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -28,7 +28,7 @@ interface AudioPlaybackState {
 
 export default function App() {
   // 1. Assets State
-  const [activeTab, setActiveTab] = useState<'script' | 'assets' | 'settings'>('script');
+  const [activeTab, setActiveTab] = useState<'script' | 'notes' | 'assets' | 'settings'>('script');
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoFileName, setVideoFileName] = useState<string>('');
   const [narrationFileName, setNarrationFileName] = useState<string>('');
@@ -578,6 +578,13 @@ export default function App() {
                 <span>Script</span>
               </button>
               <button
+                className={`tab-btn ${activeTab === 'notes' ? 'active' : ''}`}
+                onClick={() => setActiveTab('notes')}
+              >
+                <Mic size={16} />
+                <span>台本 (Voiceover)</span>
+              </button>
+              <button
                 className={`tab-btn ${activeTab === 'assets' ? 'active' : ''}`}
                 onClick={() => setActiveTab('assets')}
               >
@@ -614,6 +621,68 @@ export default function App() {
                         <span style={{ color: '#94a3b8' }}>{s.layout}</span>
                       </div>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'notes' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                  <div style={{ background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.2)', padding: '1rem', borderRadius: '0.75rem' }}>
+                    <div style={{ color: '#60a5fa', fontSize: '0.75rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.25rem', marginBottom: '0.5rem' }}>
+                      <Mic size={12} />
+                      <span>読み上げ用台本 (Speaker Notes)</span>
+                    </div>
+                    <p style={{ margin: 0, fontSize: '11px', color: '#94a3b8', lineHeight: 1.4 }}>
+                      外部の音声合成ツールやマイクを使用して録音する際は、以下の台本をご利用ください。録音した音声ファイルは「Assets」タブからアップロードできます。
+                    </p>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    {parsedData.slides.map((s, idx) => {
+                      const isLast = idx === parsedData.slides.length - 1;
+                      const textToRead = `${s.header || ''}\n${!isLast && s.sub_header ? s.sub_header : ''}`.trim();
+                      
+                      return (
+                        <div key={idx} className="upload-card" style={{ padding: '1rem' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#e2e8f0' }}>
+                              Slide {s.id} ({s.layout})
+                            </span>
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(textToRead);
+                                alert(`Slide ${s.id} の台本をコピーしました！`);
+                              }}
+                              className="btn-secondary"
+                              style={{ padding: '0.25rem 0.5rem', fontSize: '10px', width: 'auto', display: 'flex', gap: '0.25rem', alignItems: 'center' }}
+                            >
+                              <Copy size={10} />
+                              <span>Copy</span>
+                            </button>
+                          </div>
+                          
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', background: 'rgba(0, 0, 0, 0.2)', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid rgba(255,255,255,0.03)' }}>
+                            {s.header && (
+                              <div style={{ display: 'flex', gap: '0.5rem', fontSize: '12px' }}>
+                                <span style={{ color: '#38bdf8', fontWeight: 600, minWidth: '45px' }}>英語:</span>
+                                <span style={{ color: '#f1f5f9', wordBreak: 'break-all' }}>{s.header}</span>
+                              </div>
+                            )}
+                            {!isLast && s.sub_header && (
+                              <div style={{ display: 'flex', gap: '0.5rem', fontSize: '12px' }}>
+                                <span style={{ color: '#fb7185', fontWeight: 600, minWidth: '45px' }}>日本語:</span>
+                                <span style={{ color: '#cbd5e1', wordBreak: 'break-all' }}>{s.sub_header}</span>
+                              </div>
+                            )}
+                            {isLast && (
+                              <div style={{ fontSize: '10px', color: '#64748b', fontStyle: 'italic', marginTop: '0.25rem' }}>
+                                ※ 最終スライドの日本語サブヘッダーは読み上げられません。
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
