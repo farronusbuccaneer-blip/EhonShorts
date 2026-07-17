@@ -259,13 +259,23 @@ function speedUpAudioBuffer(buffer: AudioBuffer, speed: number, audioCtx: AudioC
 /**
  * Helper to fetch cloud Google Translate TTS.
  */
-async function fetchGoogleTtsClip(text: string, lang: 'ja' | 'en', audioCtx: AudioContext): Promise<AudioBuffer> {
+async function fetchGoogleTtsClip(
+  text: string, 
+  lang: 'ja' | 'en', 
+  audioCtx: AudioContext,
+  cfWorkerUrl?: string
+): Promise<AudioBuffer> {
   const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
   let url = '';
   let headers: HeadersInit = {};
   
   if (isLocal) {
     url = `/api-tts/translate_tts?ie=UTF-8&tl=${lang}&client=tw-ob&q=${encodeURIComponent(text.substring(0, 200))}`;
+  } else if (cfWorkerUrl) {
+    // Use user's custom Cloudflare Worker proxy to fetch Google Translate TTS directly
+    const cleanWorkerUrl = cfWorkerUrl.endsWith('/') ? cfWorkerUrl : cfWorkerUrl + '/';
+    const target = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${lang}&client=tw-ob&q=${encodeURIComponent(text.substring(0, 200))}`;
+    url = `${cleanWorkerUrl}?url=${encodeURIComponent(target)}`;
   } else {
     // In production, bypass CORS and Google blocks by using Youdao dictvoice via proxy.cors.sh
     const le = lang === 'ja' ? 'jap' : 'eng';
@@ -288,6 +298,7 @@ export interface ApiKeys {
   openAiKey?: string;
   voiceRssKey?: string;
   openAiVoice?: string;
+  cfWorkerUrl?: string;
 }
 
 async function fetchOpenAiTtsClip(text: string, voice: string, apiKey: string, audioCtx: AudioContext): Promise<AudioBuffer> {
@@ -355,7 +366,7 @@ async function fetchTtsClip(
         } else if (apiKeys.voiceRssKey) {
           buf = await fetchVoiceRssTtsClip(seg.text, 'ja', apiKeys.voiceRssKey, audioCtx);
         } else {
-          buf = await fetchGoogleTtsClip(seg.text, 'ja', audioCtx);
+          buf = await fetchGoogleTtsClip(seg.text, 'ja', audioCtx, apiKeys.cfWorkerUrl);
         }
       }
       
@@ -370,7 +381,7 @@ async function fetchTtsClip(
       } else if (apiKeys.voiceRssKey) {
         buf = await fetchVoiceRssTtsClip(seg.text, 'en', apiKeys.voiceRssKey, audioCtx);
       } else {
-        buf = await fetchGoogleTtsClip(seg.text, 'en', audioCtx);
+        buf = await fetchGoogleTtsClip(seg.text, 'en', audioCtx, apiKeys.cfWorkerUrl);
       }
     }
 

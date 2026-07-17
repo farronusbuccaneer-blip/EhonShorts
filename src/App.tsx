@@ -66,6 +66,7 @@ export default function App() {
   const [openAiApiKey, setOpenAiApiKey] = useState<string>(() => localStorage.getItem('ehon_openai_key') || '');
   const [openAiVoice, setOpenAiVoice] = useState<string>(() => localStorage.getItem('ehon_openai_voice') || 'alloy');
   const [voiceRssApiKey, setVoiceRssApiKey] = useState<string>(() => localStorage.getItem('ehon_voicerss_key') || '');
+  const [cfWorkerUrl, setCfWorkerUrl] = useState<string>(() => localStorage.getItem('ehon_cf_worker_url') || '');
 
   useEffect(() => {
     localStorage.setItem('ehon_openai_key', openAiApiKey);
@@ -78,6 +79,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('ehon_voicerss_key', voiceRssApiKey);
   }, [voiceRssApiKey]);
+
+  useEffect(() => {
+    localStorage.setItem('ehon_cf_worker_url', cfWorkerUrl);
+  }, [cfWorkerUrl]);
 
   // 5. Exporter & Loader State
   const [loadingText, setLoadingText] = useState<string>('');
@@ -211,7 +216,8 @@ export default function App() {
         {
           openAiKey: openAiApiKey,
           voiceRssKey: voiceRssApiKey,
-          openAiVoice: openAiVoice
+          openAiVoice: openAiVoice,
+          cfWorkerUrl: cfWorkerUrl
         }
       );
       
@@ -224,10 +230,10 @@ export default function App() {
       setErrorMessage(
         `音声合成の生成に失敗しました: ${err.message}\n\n` +
         `【解決策】\n` +
-        `本番環境（GitHub Pages）で直接音声ファイルを生成し、動画に含めてダウンロードするにはAPIキーの設定が必要です。\n` +
-        `「Settings」タブを開き、以下のいずれかのAPIキーを設定して再度お試しください：\n` +
+        `本番環境（GitHub Pages）で直接音声ファイルを生成し、動画に含めてダウンロードするには、以下のいずれかの設定が必要です。「Settings」タブを開いて設定してください：\n` +
         `① OpenAI API Key（極めて高品質なAI音声になります）\n` +
-        `② VoiceRSS API Key（無料で即座に取得できる無料キーです）`
+        `② VoiceRSS API Key（無料で即座に取得できる無料キーです）\n` +
+        `③ Custom Cloudflare Worker Proxy（あなた専用の無料プロキシ経由でGoogle音声を使用します）`
       );
     } finally {
       setLoadingText('');
@@ -1059,6 +1065,30 @@ export default function App() {
                           value={voiceRssApiKey}
                           onChange={(e) => setVoiceRssApiKey(e.target.value)}
                           placeholder="Get free key at voicerss.org (350 reqs/day)"
+                          style={{
+                            background: 'rgba(0,0,0,0.2)',
+                            border: '1px solid rgba(255,255,255,0.08)',
+                            borderRadius: '0.375rem',
+                            padding: '0.45rem 0.6rem',
+                            color: '#fff',
+                            fontSize: '11px',
+                            width: '100%',
+                            fontFamily: 'monospace'
+                          }}
+                        />
+                      </div>
+
+                      {/* Cloudflare Worker Proxy */}
+                      <div className="slider-group" style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', borderTop: '1px dashed rgba(255,255,255,0.05)', paddingTop: '0.75rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: 600 }}>
+                          <span style={{ color: '#38bdf8' }}>③ Custom Cloudflare Worker Proxy</span>
+                          <span style={{ color: '#64748b' }}>無制限・完全無料 (キー不要)</span>
+                        </div>
+                        <input
+                          type="text"
+                          value={cfWorkerUrl}
+                          onChange={(e) => setCfWorkerUrl(e.target.value)}
+                          placeholder="https://your-worker.yourname.workers.dev/"
                           style={{
                             background: 'rgba(0,0,0,0.2)',
                             border: '1px solid rgba(255,255,255,0.08)',
