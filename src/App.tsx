@@ -637,6 +637,23 @@ export default function App() {
                     </p>
                   </div>
 
+                  <button
+                    onClick={() => {
+                      const allText = parsedData.slides.map((s, idx) => {
+                        const isLast = idx === parsedData.slides.length - 1;
+                        return `${s.header || ''}\n${!isLast && s.sub_header ? s.sub_header : ''}`.trim();
+                      }).filter(t => t.length > 0).join('\n\n');
+                      
+                      navigator.clipboard.writeText(allText);
+                      alert('すべてのスライドの台本を一括コピーしました！');
+                    }}
+                    className="btn-primary"
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.75rem' }}
+                  >
+                    <Copy size={16} />
+                    <span>台本を一括コピー (Copy All)</span>
+                  </button>
+
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                     {parsedData.slides.map((s, idx) => {
                       const isLast = idx === parsedData.slides.length - 1;
