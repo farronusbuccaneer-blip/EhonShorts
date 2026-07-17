@@ -163,8 +163,11 @@ export function alignSlidesHeuristically(
  * Also normalizes common typo characters like Korean particle '의' to Japanese 'の'.
  */
 function cleanTextForTts(text: string): string {
+  // Strip out HTML-like styling tags (e.g. <yellow>, </red>, etc.)
+  let cleaned = text.replace(/<\/?[a-zA-Z]+>/g, ' ');
+
   // Replace quotation marks and brackets with spaces
-  let cleaned = text.replace(/[「」『』"'\(\)\[\]\{\}（）<>＜＞《》【】]/g, ' ');
+  cleaned = cleaned.replace(/[「」『』"'\(\)\[\]\{\}（）<>＜＞《》【】]/g, ' ');
   
   // Replace Korean particle '의' with Japanese 'の' to prevent voice crashes
   cleaned = cleaned.replace(/의/g, 'の');
