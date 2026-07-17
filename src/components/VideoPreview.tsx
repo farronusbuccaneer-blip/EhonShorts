@@ -203,6 +203,47 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     };
   }, [slides, thinkingStatus, title, hook, videoLoaded]);
 
+  // Real-time Web Speech API Synthesis when narrationBuffer is null (works offline & serverless)
+  useEffect(() => {
+    if (!isPlaying) {
+      window.speechSynthesis.cancel();
+      return;
+    }
+    if (narrationBuffer) {
+      // If we have an uploaded narration file, don't use Web Speech API
+      return;
+    }
+
+    const activeIdx = thinkingStatus.activeIdx;
+    if (activeIdx < 0 || activeIdx >= slides.length) return;
+
+    const slide = slides[activeIdx];
+    const isLast = activeIdx === slides.length - 1;
+
+    // Speak slide text
+    window.speechSynthesis.cancel(); // Stop any current speech immediately
+
+    // For English header:
+    if (slide.header) {
+      const engUtterance = new SpeechSynthesisUtterance(slide.header);
+      engUtterance.lang = 'en-US';
+      engUtterance.rate = 1.0;
+      window.speechSynthesis.speak(engUtterance);
+    }
+
+    // For Japanese subtitle (unless it's the last slide):
+    if (!isLast && slide.sub_header) {
+      const jaUtterance = new SpeechSynthesisUtterance(slide.sub_header);
+      jaUtterance.lang = 'ja-JP';
+      jaUtterance.rate = 1.1; // Slightly faster Japanese
+      window.speechSynthesis.speak(jaUtterance);
+    }
+    
+    return () => {
+      window.speechSynthesis.cancel();
+    };
+  }, [isPlaying, thinkingStatus.activeIdx, slides, narrationBuffer]);
+
   return (
     <div className="preview-container">
       {/* 9:16 aspect preview frame */}

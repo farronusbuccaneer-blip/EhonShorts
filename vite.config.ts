@@ -10,6 +10,8 @@ export default defineConfig({
     emptyOutDir: true,
   },
   server: {
+    host: true,
+    port: 5173,
     proxy: {
       '/api-tts': {
         target: 'https://translate.google.com',

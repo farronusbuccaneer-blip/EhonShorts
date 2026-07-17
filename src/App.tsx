@@ -195,7 +195,17 @@ export default function App() {
       setCurrentTime(0);
       setErrorMessage(null);
     } catch (err: any) {
-      setErrorMessage(`Failed to generate TTS narration: ${err.message}`);
+      const isProd = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+      if (isProd) {
+        setErrorMessage(
+          `本番環境（GitHub Pages）では、外部APIのセキュリティ制限により自動TTSファイルを生成・ダウンロードできません。\n\n` +
+          `【対応方法】\n` +
+          `① そのまま再生ボタンを押すと、スマホやPCのブラウザ内蔵音声（SiriやGoogle音声等）でナレーションがリアルタイムに読み上げられます！\n` +
+          `② 動画を音声付きで保存したい場合は、「台本 (Voiceover)」タブからセリフを一括コピーして外部ツールで録音し、Assetsタブからアップロードしてください。`
+        );
+      } else {
+        setErrorMessage(`Failed to generate TTS narration: ${err.message}`);
+      }
     } finally {
       setLoadingText('');
     }
