@@ -262,21 +262,16 @@ function speedUpAudioBuffer(buffer: AudioBuffer, speed: number, audioCtx: AudioC
 async function fetchGoogleTtsClip(text: string, lang: 'ja' | 'en', audioCtx: AudioContext): Promise<AudioBuffer> {
   const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
   let url = '';
-  let headers: HeadersInit = {};
   
   if (isLocal) {
     url = `/api-tts/translate_tts?ie=UTF-8&tl=${lang}&client=tw-ob&q=${encodeURIComponent(text.substring(0, 200))}`;
   } else {
-    // In production, bypass Google Translate's Origin/Referer blocks by using Youdao dictvoice via proxy.cors.sh
-    const le = lang === 'ja' ? 'jap' : 'eng';
-    const target = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(text.substring(0, 200))}&le=${le}`;
-    url = `https://proxy.cors.sh/${target}`;
-    headers = {
-      'x-cors-gratis': 'true'
-    };
+    // In production, bypass CORS and Origin/Referer blocks using allorigins.win raw proxy
+    const target = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${lang}&client=tw-ob&q=${encodeURIComponent(text.substring(0, 200))}`;
+    url = `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`;
   }
 
-  const res = await fetch(url, { headers });
+  const res = await fetch(url);
   if (!res.ok) {
     throw new Error(`Google TTS endpoint responded with status ${res.status}`);
   }
