@@ -272,12 +272,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
           />
         )}
 
-        {/* Layout indicator overlays */}
-        {slides.length > 0 && (
-          <div className="preview-indicator">
-            {slides[thinkingStatus.activeIdx]?.layout.toUpperCase()}
-          </div>
-        )}
+
       </div>
 
       {/* Control buttons */}
