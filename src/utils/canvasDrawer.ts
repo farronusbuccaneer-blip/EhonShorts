@@ -460,32 +460,57 @@ export function drawSlideFrame(
     }
     ctx.restore();
 
-    // Hook at top (Upper 20% - Safe Area)
+    // Hook at top (Upper 20% - Safe Area Headline)
     if (hook) {
       ctx.save();
       ctx.globalAlpha = subEase;
       
-      const hookFont = '600 24px "Zen Maru Gothic", sans-serif';
+      const hookFontSize = 34;
+      const hookFont = `bold ${hookFontSize}px "Zen Maru Gothic", sans-serif`;
       ctx.font = hookFont;
-      const hookW = ctx.measureText(hook).width + 40;
-      const hookH = 46;
-      const hookX = (width - hookW) / 2;
-      const hookY = 130;
       
-      // Draw red/pink badge background
+      // Wrap the hook text to fit within width - 120
+      const maxTextW = width - 120;
+      const hookLines = wrapText(ctx, hook, maxTextW);
+      
+      // Calculate dynamic box size
+      const lineHeight = hookFontSize + 12; // 46px
+      const paddingY = 18;
+      const hookBoxH = hookLines.length * lineHeight + paddingY * 2;
+      const hookBoxW = width - 80;
+      const hookBoxX = 40;
+      const hookBoxY = 105;
+      
+      // Draw premium gradient banner for maximum hook impact
       drawRoundedRect(
         ctx,
-        hookX,
-        hookY,
-        hookW,
-        hookH,
-        23,
-        'linear-gradient(90deg, #ec4899, #ef4444)'
+        hookBoxX,
+        hookBoxY,
+        hookBoxW,
+        hookBoxH,
+        20,
+        'linear-gradient(135deg, #ef4444, #db2777)'
       );
       
-      ctx.fillStyle = '#ffffff';
-      ctx.textAlign = 'center';
-      ctx.fillText(hook, width / 2, hookY + 31);
+      // Soft outer glow to make it pop
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      
+      // Draw text centered inside the box
+      let textY = hookBoxY + paddingY + hookFontSize - 2;
+      for (const line of hookLines) {
+        drawCenteredStyledLine(
+          ctx,
+          line,
+          textY,
+          hookFont,
+          '#ffffff',
+          width,
+          hookFontSize
+        );
+        textY += lineHeight;
+      }
       ctx.restore();
     }
 
