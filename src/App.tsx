@@ -62,6 +62,23 @@ export default function App() {
   const [isTapSyncMode, setIsTapSyncMode] = useState<boolean>(false);
   const [useVoiceVox, setUseVoiceVox] = useState<boolean>(false);
 
+  // API Key States (persisted in browser localStorage)
+  const [openAiApiKey, setOpenAiApiKey] = useState<string>(() => localStorage.getItem('ehon_openai_key') || '');
+  const [openAiVoice, setOpenAiVoice] = useState<string>(() => localStorage.getItem('ehon_openai_voice') || 'alloy');
+  const [voiceRssApiKey, setVoiceRssApiKey] = useState<string>(() => localStorage.getItem('ehon_voicerss_key') || '');
+
+  useEffect(() => {
+    localStorage.setItem('ehon_openai_key', openAiApiKey);
+  }, [openAiApiKey]);
+
+  useEffect(() => {
+    localStorage.setItem('ehon_openai_voice', openAiVoice);
+  }, [openAiVoice]);
+
+  useEffect(() => {
+    localStorage.setItem('ehon_voicerss_key', voiceRssApiKey);
+  }, [voiceRssApiKey]);
+
   // 5. Exporter & Loader State
   const [loadingText, setLoadingText] = useState<string>('');
   const [exportProgress, setExportProgress] = useState<number>(0);
@@ -187,7 +204,16 @@ export default function App() {
       const ctx = playbackRef.current.audioCtx || new AudioContextClass();
       playbackRef.current.audioCtx = ctx;
 
-      const { buffer, timestamps: ttsTimestamps } = await generateTtsNarration(parsedData.slides, ctx, useVoiceVox);
+      const { buffer, timestamps: ttsTimestamps } = await generateTtsNarration(
+        parsedData.slides, 
+        ctx, 
+        useVoiceVox,
+        {
+          openAiKey: openAiApiKey,
+          voiceRssKey: voiceRssApiKey,
+          openAiVoice: openAiVoice
+        }
+      );
       
       setNarrationBuffer(buffer);
       setNarrationFileName('Generated AI Narration (TTS)');
@@ -195,17 +221,14 @@ export default function App() {
       setCurrentTime(0);
       setErrorMessage(null);
     } catch (err: any) {
-      const isProd = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
-      if (isProd) {
-        setErrorMessage(
-          `本番環境（GitHub Pages）では、外部APIのセキュリティ制限により自動TTSファイルを生成・ダウンロードできません。\n\n` +
-          `【対応方法】\n` +
-          `① そのまま再生ボタンを押すと、スマホやPCのブラウザ内蔵音声（SiriやGoogle音声等）でナレーションがリアルタイムに読み上げられます！\n` +
-          `② 動画を音声付きで保存したい場合は、「台本 (Voiceover)」タブからセリフを一括コピーして外部ツールで録音し、Assetsタブからアップロードしてください。`
-        );
-      } else {
-        setErrorMessage(`Failed to generate TTS narration: ${err.message}`);
-      }
+      setErrorMessage(
+        `音声合成の生成に失敗しました: ${err.message}\n\n` +
+        `【解決策】\n` +
+        `本番環境（GitHub Pages）で直接音声ファイルを生成し、動画に含めてダウンロードするにはAPIキーの設定が必要です。\n` +
+        `「Settings」タブを開き、以下のいずれかのAPIキーを設定して再度お試しください：\n` +
+        `① OpenAI API Key（極めて高品質なAI音声になります）\n` +
+        `② VoiceRSS API Key（無料で即座に取得できる無料キーです）`
+      );
     } finally {
       setLoadingText('');
     }
@@ -956,6 +979,96 @@ export default function App() {
                           step="0.05"
                           value={duckingParams.holdTime}
                           onChange={(e) => setDuckingParams(prev => ({ ...prev, holdTime: parseFloat(e.target.value) }))}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* API Key Configuration */}
+                  <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '1.25rem' }}>
+                    <h4 className="settings-section-title" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                      <Sliders size={12} />
+                      <span>TTS API Keys (For Production Video Export)</span>
+                    </h4>
+                    <p style={{ margin: '0 0 1rem 0', fontSize: '11px', color: '#94a3b8', lineHeight: 1.4 }}>
+                      本番環境（GitHub Pages）で音声入りの動画を直接書き出すには、以下のいずれかのAPIキーを入力してください。キーはあなたのブラウザのみに安全に保存されます。
+                    </p>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                      {/* OpenAI API Key */}
+                      <div className="slider-group" style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: 600 }}>
+                          <span style={{ color: '#818cf8' }}>① OpenAI API Key</span>
+                          <span style={{ color: '#64748b' }}>高品質AI音声 (有料キー)</span>
+                        </div>
+                        <input
+                          type="password"
+                          value={openAiApiKey}
+                          onChange={(e) => setOpenAiApiKey(e.target.value)}
+                          placeholder="sk-proj-..."
+                          style={{
+                            background: 'rgba(0,0,0,0.2)',
+                            border: '1px solid rgba(255,255,255,0.08)',
+                            borderRadius: '0.375rem',
+                            padding: '0.45rem 0.6rem',
+                            color: '#fff',
+                            fontSize: '11px',
+                            width: '100%',
+                            fontFamily: 'monospace'
+                          }}
+                        />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem' }}>
+                          <span style={{ fontSize: '10px', color: '#64748b' }}>Voice:</span>
+                          <select
+                            value={openAiVoice}
+                            onChange={(e) => setOpenAiVoice(e.target.value)}
+                            style={{
+                              background: '#1e293b',
+                              border: '1px solid rgba(255,255,255,0.08)',
+                              borderRadius: '0.25rem',
+                              padding: '0.15rem 0.35rem',
+                              color: '#fff',
+                              fontSize: '10px'
+                            }}
+                          >
+                            <option value="alloy">alloy (Standard)</option>
+                            <option value="echo">echo</option>
+                            <option value="fable">fable</option>
+                            <option value="onyx">onyx (Male)</option>
+                            <option value="nova">nova (Female)</option>
+                            <option value="shimmer">shimmer</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* VoiceRSS API Key */}
+                      <div className="slider-group" style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: 600 }}>
+                          <span style={{ color: '#34d399' }}>② VoiceRSS API Key</span>
+                          <a 
+                            href="https://www.voicerss.org/" 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            style={{ color: '#60a5fa', textDecoration: 'underline' }}
+                          >
+                            無料キーを取得 (Get Free Key)
+                          </a>
+                        </div>
+                        <input
+                          type="password"
+                          value={voiceRssApiKey}
+                          onChange={(e) => setVoiceRssApiKey(e.target.value)}
+                          placeholder="Get free key at voicerss.org (350 reqs/day)"
+                          style={{
+                            background: 'rgba(0,0,0,0.2)',
+                            border: '1px solid rgba(255,255,255,0.08)',
+                            borderRadius: '0.375rem',
+                            padding: '0.45rem 0.6rem',
+                            color: '#fff',
+                            fontSize: '11px',
+                            width: '100%',
+                            fontFamily: 'monospace'
+                          }}
                         />
                       </div>
                     </div>

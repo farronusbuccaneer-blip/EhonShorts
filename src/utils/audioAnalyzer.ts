@@ -284,12 +284,55 @@ async function fetchGoogleTtsClip(text: string, lang: 'ja' | 'en', audioCtx: Aud
   return await audioCtx.decodeAudioData(arrayBuffer);
 }
 
+export interface ApiKeys {
+  openAiKey?: string;
+  voiceRssKey?: string;
+  openAiVoice?: string;
+}
+
+async function fetchOpenAiTtsClip(text: string, voice: string, apiKey: string, audioCtx: AudioContext): Promise<AudioBuffer> {
+  const res = await fetch('https://api.openai.com/v1/audio/speech', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      model: 'tts-1',
+      input: text,
+      voice: voice
+    })
+  });
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`OpenAI API Error: ${errText}`);
+  }
+  const arrayBuffer = await res.arrayBuffer();
+  return await audioCtx.decodeAudioData(arrayBuffer);
+}
+
+async function fetchVoiceRssTtsClip(text: string, lang: 'ja' | 'en', apiKey: string, audioCtx: AudioContext): Promise<AudioBuffer> {
+  const hl = lang === 'ja' ? 'ja-jp' : 'en-us';
+  const url = `https://api.voicerss.org/?key=${apiKey}&hl=${hl}&src=${encodeURIComponent(text)}&c=mp3&f=44khz_16bit_stereo`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`VoiceRSS API Error: status ${res.status}`);
+  }
+  const arrayBuffer = await res.arrayBuffer();
+  return await audioCtx.decodeAudioData(arrayBuffer);
+}
+
 /**
  * Fetches and decodes a single string clip, splitting it into CJK and English segments
  * if they are mixed, requesting local VOICEVOX neural speech (Japanese) if active,
  * otherwise falling back to Google Translate TTS, and joining them together.
  */
-async function fetchTtsClip(text: string, audioCtx: AudioContext, useVoiceVox: boolean): Promise<AudioBuffer | null> {
+async function fetchTtsClip(
+  text: string, 
+  audioCtx: AudioContext, 
+  useVoiceVox: boolean,
+  apiKeys: ApiKeys = {}
+): Promise<AudioBuffer | null> {
   const cleaned = cleanTextForTts(text);
   const segments = splitTextByLanguage(cleaned);
   if (segments.length === 0) return null;
@@ -305,9 +348,15 @@ async function fetchTtsClip(text: string, audioCtx: AudioContext, useVoiceVox: b
         // 1. Try local VOICEVOX (speaker 2: Shikoku Metan)
         buf = await fetchVoiceVoxClip(seg.text, 2, audioCtx);
       }
-      // 2. Fallback to Google Translate Japanese if VOICEVOX is disabled or fails
+      // 2. Fallback to API keys or Google Translate Japanese
       if (!buf) {
-        buf = await fetchGoogleTtsClip(seg.text, 'ja', audioCtx);
+        if (apiKeys.openAiKey) {
+          buf = await fetchOpenAiTtsClip(seg.text, apiKeys.openAiVoice || 'alloy', apiKeys.openAiKey, audioCtx);
+        } else if (apiKeys.voiceRssKey) {
+          buf = await fetchVoiceRssTtsClip(seg.text, 'ja', apiKeys.voiceRssKey, audioCtx);
+        } else {
+          buf = await fetchGoogleTtsClip(seg.text, 'ja', audioCtx);
+        }
       }
       
       // Speed up Japanese segments by 1.30x to sound energetic and fast-paced
@@ -316,7 +365,13 @@ async function fetchTtsClip(text: string, audioCtx: AudioContext, useVoiceVox: b
       }
     } else {
       // English segment
-      buf = await fetchGoogleTtsClip(seg.text, 'en', audioCtx);
+      if (apiKeys.openAiKey) {
+        buf = await fetchOpenAiTtsClip(seg.text, apiKeys.openAiVoice || 'alloy', apiKeys.openAiKey, audioCtx);
+      } else if (apiKeys.voiceRssKey) {
+        buf = await fetchVoiceRssTtsClip(seg.text, 'en', apiKeys.voiceRssKey, audioCtx);
+      } else {
+        buf = await fetchGoogleTtsClip(seg.text, 'en', audioCtx);
+      }
     }
 
     if (buf) {
@@ -366,7 +421,8 @@ async function fetchTtsClip(text: string, audioCtx: AudioContext, useVoiceVox: b
 export async function generateTtsNarration(
   slides: any[],
   audioCtx: AudioContext,
-  useVoiceVox: boolean = false
+  useVoiceVox: boolean = false,
+  apiKeys: ApiKeys = {}
 ): Promise<{ buffer: AudioBuffer; timestamps: number[] }> {
   const buffers: AudioBuffer[] = [];
   const timestamps: number[] = [0];
@@ -378,9 +434,9 @@ export async function generateTtsNarration(
 
     const isLastSlide = (i === slides.length - 1);
     // Fetch individual components separately for language purity
-    const headerBuf = await fetchTtsClip(slide.header || '', audioCtx, useVoiceVox);
+    const headerBuf = await fetchTtsClip(slide.header || '', audioCtx, useVoiceVox, apiKeys);
     // Skip reading the sub-header for the final CTA slide
-    const subHeaderBuf = isLastSlide ? null : await fetchTtsClip(slide.sub_header || '', audioCtx, useVoiceVox);
+    const subHeaderBuf = isLastSlide ? null : await fetchTtsClip(slide.sub_header || '', audioCtx, useVoiceVox, apiKeys);
     
     // Calculate total duration for this slide's voice track
     let slideVoiceDuration = 0;
