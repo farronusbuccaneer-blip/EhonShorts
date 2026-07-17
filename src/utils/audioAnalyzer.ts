@@ -402,7 +402,7 @@ async function fetchTtsClip(
     positions.push(totalDuration);
     totalDuration += segmentBuffers[i].duration;
     if (i < segmentBuffers.length - 1) {
-      totalDuration += 0.15; // 150ms segment pause
+      totalDuration += 0.0; // 0ms segment pause
     }
   }
 
@@ -455,12 +455,12 @@ export async function generateTtsNarration(
 
     if (headerBuf) {
       segments.push({ buffer: headerBuf, startOffset: slideVoiceDuration });
-      slideVoiceDuration += headerBuf.duration + 0.35; // 350ms pause after header
+      slideVoiceDuration += headerBuf.duration; // no pause after header
     }
 
     if (subHeaderBuf) {
       segments.push({ buffer: subHeaderBuf, startOffset: slideVoiceDuration });
-      slideVoiceDuration += subHeaderBuf.duration + 0.45; // 450ms pause after sub-header
+      slideVoiceDuration += subHeaderBuf.duration; // no pause after sub-header
     }
 
     // Create a merged single AudioBuffer for this slide
@@ -486,14 +486,14 @@ export async function generateTtsNarration(
   let currentOffset = 0;
   for (let i = 0; i < slides.length - 1; i++) {
     const buffer = buffers[i];
-    // Next slide starts after voice concludes, plus 0.4 seconds of screen time for rapid transitions
-    currentOffset += buffer.duration + 0.4;
+    // Next slide starts immediately after voice concludes
+    currentOffset += buffer.duration;
     timestamps.push(currentOffset);
   }
 
   // 3. Compute total length of combined narration track
   const lastBuffer = buffers[buffers.length - 1];
-  const totalDuration = currentOffset + (lastBuffer ? lastBuffer.duration : 4.0) + 0.4;
+  const totalDuration = currentOffset + (lastBuffer ? lastBuffer.duration : 4.0);
   
   // Create combined single channel AudioBuffer
   const combinedBuffer = audioCtx.createBuffer(1, Math.floor(totalDuration * sampleRate), sampleRate);
