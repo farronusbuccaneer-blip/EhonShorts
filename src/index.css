@@ -607,8 +607,15 @@ body {
   .tabs-header {
     gap: 0.25rem;
     overflow-x: auto;
+    flex-wrap: nowrap;
     padding-bottom: 0.25rem;
     -webkit-overflow-scrolling: touch;
+    width: 100%;
+    scrollbar-width: none;
+  }
+
+  .tabs-header::-webkit-scrollbar {
+    display: none;
   }
 
   .tab-btn {
