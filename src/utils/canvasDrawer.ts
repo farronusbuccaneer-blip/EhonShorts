@@ -724,7 +724,7 @@ export function drawSlideFrame(
 
       const subCardY = startButtonY + choices.length * (buttonH + 20) + 15;
       const subW = width - 100;
-      const subH = 130;
+      const subH = 165;
       const subX = 50;
 
       drawRoundedRect(
@@ -739,16 +739,16 @@ export function drawSlideFrame(
         1
       );
 
-      ctx.font = '20px "Zen Maru Gothic", sans-serif';
+      ctx.font = '500 25px "Zen Maru Gothic", sans-serif';
       ctx.fillStyle = '#cbd5e1';
       ctx.textAlign = 'left';
 
       const descLines = wrapText(ctx, slide.sub_header, subW - 30);
-      let descY = subCardY + 36;
+      let descY = subCardY + 42;
       for (const line of descLines) {
         if (descY < subCardY + subH - 10) {
-          ctx.fillText(line, subX + 15, descY);
-          descY += 28;
+          ctx.fillText(line, subX + 20, descY);
+          descY += 34;
         }
       }
       ctx.restore();
