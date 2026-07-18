@@ -876,8 +876,8 @@ export function drawSlideFrame(
     
     ctx.textAlign = 'center';
     ctx.font = 'bold 60px "Fredoka", sans-serif';
-    ctx.fillStyle = '#10b981'; // Emerald Green
-    ctx.shadowColor = 'rgba(16, 185, 129, 0.6)';
+    ctx.fillStyle = '#0ea5e9'; // Trustworthy Sky Blue
+    ctx.shadowColor = 'rgba(14, 165, 233, 0.6)';
     ctx.shadowBlur = 12 + 4 * Math.sin(slideElapsed * 6.5);
     ctx.fillText("CORRECT ANSWER!", width / 2, headerY);
     ctx.restore();
@@ -925,8 +925,8 @@ export function drawSlideFrame(
       const bY = startButtonY + idx * (buttonH + 20);
       const isCorrect = choice.toLowerCase().trim() === answer.toLowerCase().trim();
 
-      const bg = isCorrect ? 'rgba(16, 185, 129, 0.25)' : 'rgba(30, 41, 59, 0.4)';
-      const stroke = isCorrect ? '#10b981' : 'rgba(255, 255, 255, 0.05)';
+      const bg = isCorrect ? 'rgba(14, 165, 233, 0.25)' : 'rgba(30, 41, 59, 0.4)';
+      const stroke = isCorrect ? '#0ea5e9' : 'rgba(255, 255, 255, 0.05)';
       const widthStroke = isCorrect ? 2.5 : 1;
 
       drawRoundedRect(ctx, buttonX, bY, buttonW, buttonH, 14, bg, stroke, widthStroke);
@@ -934,7 +934,7 @@ export function drawSlideFrame(
       ctx.textAlign = 'left';
       if (isCorrect) {
         ctx.font = 'bold 36px "Fredoka", sans-serif';
-        ctx.fillStyle = '#10b981';
+        ctx.fillStyle = '#0ea5e9';
         ctx.fillText("✓", buttonX + 25, bY + 58);
       } else {
         ctx.font = 'bold 36px "Fredoka", sans-serif';
@@ -976,7 +976,7 @@ export function drawSlideFrame(
         subH,
         12,
         'rgba(15, 23, 42, 0.5)',
-        'rgba(16, 185, 129, 0.2)',
+        'rgba(14, 165, 233, 0.2)',
         1
       );
 

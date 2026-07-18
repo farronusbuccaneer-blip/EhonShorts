@@ -489,8 +489,14 @@ export async function generateTtsNarration(
   let currentOffset = 0;
   for (let i = 0; i < slides.length - 1; i++) {
     const buffer = buffers[i];
-    // Next slide starts immediately after voice concludes
-    currentOffset += buffer.duration;
+    const isQuizQuestion = slides[i].layout === 'quiz_question';
+    
+    // Next slide starts immediately after voice concludes (plus 0.5s silence before answer reveal)
+    if (isQuizQuestion) {
+      currentOffset += buffer.duration + 0.5;
+    } else {
+      currentOffset += buffer.duration;
+    }
     timestamps.push(currentOffset);
   }
 
