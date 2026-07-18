@@ -371,7 +371,7 @@ export default function App() {
       }
 
       if (elapsed >= totalDuration) {
-        stopAudioPlayback(true);
+        startAudioPlayback(0);
       } else {
         setCurrentTime(elapsed);
       }

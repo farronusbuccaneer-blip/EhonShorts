@@ -93,19 +93,19 @@ export const DEFAULT_MARKDOWN = `<title>Stop VERY!</title>
 <slide1>
 <layout>hook_layout</layout>
 <header>Stop Saying <yellow>VERY!</yellow></header>
-<sub_header>こればかり使うと初心者っぽい？</sub_header>
+<sub_header>こればかり使うと初心者っぽく聞こえるので…</sub_header>
 </slide1>
 
 <slide2>
 <layout>list_layout</layout>
 <header>1. <red>Freezing</red></header>
-<sub_header>very cold の代わりに使うネイティブ表現</sub_header>
+<sub_header>very cold（とても寒い）の代わりに使えます</sub_header>
 </slide2>
 
 <slide3>
 <layout>quiz_question</layout>
 <header>2. <yellow>Starving</yellow></header>
-<sub_header>very hungry より『極限の飢え』を表す表現はどっち？</sub_header>
+<sub_header>very hungry より「極限の飢え」を表すのはどっち？</sub_header>
 <choices>["Starving", "Dying"]</choices>
 <answer>Starving</answer>
 </slide3>
@@ -113,12 +113,12 @@ export const DEFAULT_MARKDOWN = `<title>Stop VERY!</title>
 <slide4>
 <layout>quiz_answer</layout>
 <header>正解は <yellow>Starving!</yellow></header>
-<sub_header>I am starving! で「お腹ペコペコ！」と使えます</sub_header>
+<sub_header>I am starving! で「お腹ペコペコ！」と表現できます</sub_header>
 </slide4>
 
 <slide5>
 <layout>list_layout</layout>
-<header>関連動画をチェック！</header>
-<sub_header>本編の絵本は関連動画からすぐに見られます！英語クイズの続きを楽しもう！</sub_header>
+<header>ループで復習！</header>
+<sub_header>これらは日常会話で本当によく使います。忘れないように、今すぐ…</sub_header>
 </slide5>
 `;
