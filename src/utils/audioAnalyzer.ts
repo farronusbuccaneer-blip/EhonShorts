@@ -500,9 +500,54 @@ export async function generateTtsNarration(
     timestamps.push(currentOffset);
   }
 
+  // Helper to resolve relative asset URLs locally and on GitHub Pages
+  const resolveAudioUrl = (src: string): string => {
+    if (src.startsWith('http://') || src.startsWith('https://')) {
+      return src;
+    }
+    const basePath = window.location.origin + window.location.pathname.replace(/\/(index\.html)?$/, '');
+    return `${basePath}/audio/${src}`;
+  };
+
+  // Load and decode slide sound effects in parallel
+  const soundEffects: { buffer: AudioBuffer; startOffset: number; volume: number }[] = [];
+  for (let i = 0; i < slides.length; i++) {
+    const slide = slides[i];
+    if (slide.audios) {
+      for (const audio of slide.audios) {
+        try {
+          const resolvedUrl = resolveAudioUrl(audio.src);
+          const response = await fetch(resolvedUrl);
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          const arrayBuffer = await response.arrayBuffer();
+          // Use copy of context to prevent thread block
+          const effectBuf = await audioCtx.decodeAudioData(arrayBuffer);
+          
+          soundEffects.push({
+            buffer: effectBuf,
+            startOffset: timestamps[i] + audio.offset,
+            volume: audio.volume
+          });
+        } catch (e) {
+          console.warn(`Failed to load sound effect ${audio.src}:`, e);
+        }
+      }
+    }
+  }
+
   // 3. Compute total length of combined narration track
   const lastBuffer = buffers[buffers.length - 1];
-  const totalDuration = currentOffset + (lastBuffer ? lastBuffer.duration : 4.0);
+  let totalDuration = currentOffset + (lastBuffer ? lastBuffer.duration : 4.0);
+  
+  // Extend totalDuration if any sound effect extends past it
+  for (const fx of soundEffects) {
+    const fxEnd = fx.startOffset + fx.buffer.duration;
+    if (fxEnd > totalDuration) {
+      totalDuration = fxEnd;
+    }
+  }
   
   // Create combined single channel AudioBuffer
   const combinedBuffer = audioCtx.createBuffer(1, Math.floor(totalDuration * sampleRate), sampleRate);
@@ -518,6 +563,28 @@ export async function generateTtsNarration(
       if (startSample + j < combinedData.length) {
         combinedData[startSample + j] = channelData[j];
       }
+    }
+  }
+
+  // 5. Merge sound effects into the master timeline channel additively
+  for (const fx of soundEffects) {
+    const startSample = Math.floor(fx.startOffset * sampleRate);
+    const channelData = fx.buffer.getChannelData(0);
+    const vol = fx.volume;
+    
+    for (let j = 0; j < channelData.length; j++) {
+      if (startSample + j < combinedData.length) {
+        combinedData[startSample + j] += channelData[j] * vol;
+      }
+    }
+  }
+
+  // 6. Master peak limiter (clamp between -1.0 and 1.0)
+  for (let i = 0; i < combinedData.length; i++) {
+    if (combinedData[i] > 1.0) {
+      combinedData[i] = 1.0;
+    } else if (combinedData[i] < -1.0) {
+      combinedData[i] = -1.0;
     }
   }
 

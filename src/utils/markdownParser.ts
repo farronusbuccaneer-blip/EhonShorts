@@ -1,3 +1,9 @@
+export interface SlideAudio {
+  src: string;
+  offset: number;
+  volume: number;
+}
+
 export interface Slide {
   id: number;
   layout: string;
@@ -7,6 +13,7 @@ export interface Slide {
   // Extra options for quiz layout
   choices?: string[];
   answer?: string;
+  audios?: SlideAudio[];
 }
 
 export interface MarkdownData {
@@ -81,6 +88,36 @@ export function parseMarkdown(mdText: string): MarkdownData {
       }
     }
 
+    // Parse audios (supporting attributes: src, offset, volume)
+    const audios: SlideAudio[] = [];
+    const audioTagRegex = /<audio\s+([^>]*?)\/?>|<audio>([\s\S]*?)<\/audio>/gi;
+    let audioMatch;
+    while ((audioMatch = audioTagRegex.exec(slideBody)) !== null) {
+      if (audioMatch[1]) {
+        const attrStr = audioMatch[1];
+        const srcAttr = attrStr.match(/src=["']([\s\S]*?)["']/i);
+        const offsetAttr = attrStr.match(/offset=["']([\s\S]*?)["']/i);
+        const volumeAttr = attrStr.match(/volume=["']([\s\S]*?)["']/i);
+        
+        if (srcAttr) {
+          audios.push({
+            src: srcAttr[1].trim(),
+            offset: offsetAttr ? parseFloat(offsetAttr[1]) : 0,
+            volume: volumeAttr ? parseFloat(volumeAttr[1]) : 1.0
+          });
+        }
+      } else if (audioMatch[2]) {
+        audios.push({
+          src: audioMatch[2].trim(),
+          offset: 0,
+          volume: 1.0
+        });
+      }
+    }
+    if (audios.length > 0) {
+      slide.audios = audios;
+    }
+
     result.slides.push(slide);
   }
 
@@ -94,6 +131,7 @@ export const DEFAULT_MARKDOWN = `<title>Stop VERY!</title>
 <layout>hook_layout</layout>
 <header>Stop Saying <yellow>VERY!</yellow></header>
 <sub_header>こればかり使うと初心者っぽく聞こえるので…</sub_header>
+<audio src="swoosh.mp3" volume="0.8" />
 </slide1>
 
 <slide2>
@@ -108,12 +146,14 @@ export const DEFAULT_MARKDOWN = `<title>Stop VERY!</title>
 <sub_header>very hungry より「極限の飢え」を表すのはどっち？</sub_header>
 <choices>["Starving", "Dying"]</choices>
 <answer>Starving</answer>
+<audio src="tictoc.mp3" volume="0.6" />
 </slide3>
 
 <slide4>
 <layout>quiz_answer</layout>
 <header>正解は <yellow>Starving!</yellow></header>
 <sub_header>I am starving! で「お腹ペコペコ！」と表現できます</sub_header>
+<audio src="tada.mp3" volume="0.7" />
 </slide4>
 
 <slide5>

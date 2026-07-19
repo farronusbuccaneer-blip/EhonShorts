@@ -203,7 +203,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     };
   }, [slides, thinkingStatus, title, hook, videoLoaded]);
 
-  // Real-time Web Speech API Synthesis when narrationBuffer is null (works offline & serverless)
+  // Real-time Web Speech API Synthesis & SFX when narrationBuffer is null (works offline & serverless)
   useEffect(() => {
     if (!isPlaying) {
       window.speechSynthesis.cancel();
@@ -219,6 +219,41 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
 
     const slide = slides[activeIdx];
     const isLast = activeIdx === slides.length - 1;
+
+    // Helper to resolve relative asset URLs
+    const resolveAudioUrl = (src: string): string => {
+      if (src.startsWith('http://') || src.startsWith('https://')) {
+        return src;
+      }
+      const basePath = window.location.origin + window.location.pathname.replace(/\/(index\.html)?$/, '');
+      return `${basePath}/audio/${src}`;
+    };
+
+    // Play slide specific sound effects in real-time preview (offline fallback)
+    const activeAudios: HTMLAudioElement[] = [];
+    const timeouts: number[] = [];
+
+    if (slide.audios) {
+      slide.audios.forEach(audio => {
+        try {
+          const resolvedUrl = resolveAudioUrl(audio.src);
+          const sfx = new Audio(resolvedUrl);
+          sfx.volume = audio.volume;
+          
+          if (audio.offset > 0) {
+            const tId = window.setTimeout(() => {
+              sfx.play().catch(e => console.warn("Real-time SFX play block:", e));
+            }, audio.offset * 1000);
+            timeouts.push(tId);
+          } else {
+            sfx.play().catch(e => console.warn("Real-time SFX play block:", e));
+          }
+          activeAudios.push(sfx);
+        } catch (e) {
+          console.warn("Real-time SFX creation failed:", e);
+        }
+      });
+    }
 
     // Speak slide text
     window.speechSynthesis.cancel(); // Stop any current speech immediately
@@ -243,6 +278,12 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     
     return () => {
       window.speechSynthesis.cancel();
+      activeAudios.forEach(sfx => {
+        try {
+          sfx.pause();
+        } catch (e) {}
+      });
+      timeouts.forEach(tId => clearTimeout(tId));
     };
   }, [isPlaying, thinkingStatus.activeIdx, slides, narrationBuffer]);
 
