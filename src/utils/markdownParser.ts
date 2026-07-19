@@ -135,30 +135,24 @@ export const DEFAULT_MARKDOWN = `<title>Stop VERY!</title>
 </slide1>
 
 <slide2>
-<layout>list_layout</layout>
-<header>1. <red>Freezing</red></header>
-<sub_header>very cold（とても寒い）の代わりに使えます</sub_header>
-</slide2>
-
-<slide3>
 <layout>quiz_question</layout>
-<header>2. <yellow>Starving</yellow></header>
+<header>1. <yellow>Starving</yellow></header>
 <sub_header>very hungry より「極限の飢え」を表すのはどっち？</sub_header>
 <choices>["Starving", "Dying"]</choices>
 <answer>Starving</answer>
 <audio src="tictoc.mp3" volume="0.6" />
-</slide3>
+</slide2>
 
-<slide4>
+<slide3>
 <layout>quiz_answer</layout>
 <header>正解は <yellow>Starving!</yellow></header>
 <sub_header>I am starving! で「お腹ペコペコ！」と表現できます</sub_header>
 <audio src="tada.mp3" volume="0.7" />
-</slide4>
+</slide3>
 
-<slide5>
+<slide4>
 <layout>list_layout</layout>
 <header>ループで復習！</header>
 <sub_header>これらは日常会話で本当によく使います。忘れないように、今すぐ…</sub_header>
-</slide5>
+</slide4>
 `;
