@@ -226,7 +226,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
         return src;
       }
       const basePath = window.location.origin + window.location.pathname.replace(/\/(index\.html)?$/, '');
-      return `${basePath}/audio/${src}?v=3`;
+      return `${basePath}/audio/${src}?v=4`;
     };
 
     // Play slide specific sound effects in real-time preview (offline fallback)
@@ -264,8 +264,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
       const headerSegments = splitTextByLanguage(cleanHeader);
       
       headerSegments.forEach(seg => {
-        let cleanText = seg.text.replace(/[「」『』"'\(\)\[\]\{\}（）<>＜＞《》【】]/g, ' ');
-        cleanText = cleanText.replace(/[\u2026\u22ef]+/g, ' ').replace(/\.{2,}/g, ' ').trim();
+        const cleanText = seg.text.replace(/[「」『』"'\(\)\[\]\{\}（）<>＜＞《》【】、。,\.\u2026\u22ef]/g, ' ').trim();
         if (!cleanText) return;
         
         const utterance = new SpeechSynthesisUtterance(cleanText);
@@ -286,8 +285,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
       const subSegments = splitTextByLanguage(cleanSubHeader);
       
       subSegments.forEach(seg => {
-        let cleanText = seg.text.replace(/[「」『』"'\(\)\[\]\{\}（）<>＜＞《》【】]/g, ' ');
-        cleanText = cleanText.replace(/[\u2026\u22ef]+/g, ' ').replace(/\.{2,}/g, ' ').trim();
+        const cleanText = seg.text.replace(/[「」『』"'\(\)\[\]\{\}（）<>＜＞《》【】、。,\.\u2026\u22ef]/g, ' ').trim();
         if (!cleanText) return;
         
         const utterance = new SpeechSynthesisUtterance(cleanText);

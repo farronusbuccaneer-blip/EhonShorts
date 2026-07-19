@@ -166,12 +166,8 @@ function cleanTextForTts(text: string): string {
   // Strip out HTML-like styling tags (e.g. <yellow>, </red>, etc.)
   let cleaned = text.replace(/<\/?[a-zA-Z]+>/g, ' ');
 
-  // Replace ellipsis and multi-dot runs (2 or more dots) with spaces so they are silent
-  cleaned = cleaned.replace(/[\u2026\u22ef]+/g, ' ');
-  cleaned = cleaned.replace(/\.{2,}/g, ' ');
-
-  // Replace quotation marks and brackets with spaces
-  cleaned = cleaned.replace(/[「」『』"'\(\)\[\]\{\}（）<>＜＞《》【】]/g, ' ');
+  // Replace punctuation, quotation marks, commas, periods, and brackets with spaces so they are silent
+  cleaned = cleaned.replace(/[「」『』"'\(\)\[\]\{\}（）<>＜＞《》【】、。,\.\u2026\u22ef]/g, ' ');
   
   // Replace Korean particle '의' with Japanese 'の' to prevent voice crashes
   cleaned = cleaned.replace(/의/g, 'の');
@@ -508,11 +504,11 @@ export async function generateTtsNarration(
       return src;
     }
     const basePath = window.location.origin + window.location.pathname.replace(/\/(index\.html)?$/, '');
-    return `${basePath}/audio/${src}?v=3`;
+    return `${basePath}/audio/${src}?v=4`;
   };
 
   // Load and decode slide sound effects in parallel
-  const soundEffects: { buffer: AudioBuffer; startOffset: number; volume: number }[] = [];
+  const soundEffects: { buffer: AudioBuffer; startOffset: number; volume: number; slideIndex: number }[] = [];
   for (let i = 0; i < slides.length; i++) {
     const slide = slides[i];
     if (slide.audios) {
@@ -530,7 +526,8 @@ export async function generateTtsNarration(
           soundEffects.push({
             buffer: effectBuf,
             startOffset: timestamps[i] + audio.offset,
-            volume: audio.volume
+            volume: audio.volume,
+            slideIndex: i
           });
         } catch (e) {
           console.warn(`Failed to load sound effect ${audio.src}:`, e);
@@ -568,15 +565,33 @@ export async function generateTtsNarration(
     }
   }
 
-  // 5. Merge sound effects into the master timeline channel additively
+  // 5. Merge sound effects into the master timeline channel additively (with slide boundary gating & fade-out)
   for (const fx of soundEffects) {
     const startSample = Math.floor(fx.startOffset * sampleRate);
+    
+    // Find the end time of the slide this sound effect belongs to
+    const slideIndex = fx.slideIndex;
+    const slideEndTime = (slideIndex < slides.length - 1) ? timestamps[slideIndex + 1] : totalDuration;
+    const endSample = Math.floor(slideEndTime * sampleRate);
+    
     const channelData = fx.buffer.getChannelData(0);
     const vol = fx.volume;
+    const maxSamples = endSample - startSample;
+    const fadeSamples = Math.floor(0.1 * sampleRate); // 0.1s linear fade-out
     
     for (let j = 0; j < channelData.length; j++) {
+      if (j >= maxSamples) break; // Gate: stop writing past the slide boundary!
+      
+      let sampleVal = channelData[j] * vol;
+      
+      // Apply linear fade-out in the last 0.1 seconds of the slide
+      if (maxSamples > fadeSamples && j >= maxSamples - fadeSamples) {
+        const fadeRatio = (maxSamples - j) / fadeSamples; // goes from 1.0 down to 0.0
+        sampleVal *= fadeRatio;
+      }
+      
       if (startSample + j < combinedData.length) {
-        combinedData[startSample + j] += channelData[j] * vol;
+        combinedData[startSample + j] += sampleVal;
       }
     }
   }
