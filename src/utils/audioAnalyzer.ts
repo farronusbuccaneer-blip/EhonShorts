@@ -446,11 +446,9 @@ export async function generateTtsNarration(
   for (let i = 0; i < slides.length; i++) {
     const slide = slides[i];
 
-    const isLastSlide = (i === slides.length - 1);
     // Fetch individual components separately for language purity
     const headerBuf = await fetchTtsClip(slide.header || '', audioCtx, useVoiceVox, apiKeys);
-    // Skip reading the sub-header for the final CTA slide
-    const subHeaderBuf = isLastSlide ? null : await fetchTtsClip(slide.sub_header || '', audioCtx, useVoiceVox, apiKeys);
+    const subHeaderBuf = await fetchTtsClip(slide.sub_header || '', audioCtx, useVoiceVox, apiKeys);
     
     // Calculate total duration for this slide's voice track
     let slideVoiceDuration = 0;

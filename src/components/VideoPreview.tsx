@@ -219,7 +219,6 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     if (activeIdx < 0 || activeIdx >= slides.length) return;
 
     const slide = slides[activeIdx];
-    const isLast = activeIdx === slides.length - 1;
 
     // Helper to resolve relative asset URLs
     const resolveAudioUrl = (src: string): string => {
@@ -280,8 +279,8 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
       });
     }
 
-    // Speak English / Japanese segments in Subtitle (unless it's the last slide):
-    if (!isLast && slide.sub_header) {
+    // Speak English / Japanese segments in Subtitle:
+    if (slide.sub_header) {
       const cleanSubHeader = slide.sub_header.replace(/<\/?[a-zA-Z]+>/g, ' ');
       const subSegments = splitTextByLanguage(cleanSubHeader);
       
