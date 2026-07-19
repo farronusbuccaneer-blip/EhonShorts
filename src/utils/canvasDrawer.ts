@@ -224,7 +224,9 @@ export function drawSlideFrame(
   thinkingProgress: number,
   title: string,
   hook: string,
-  slideElapsed: number
+  slideElapsed: number,
+  imageCache?: Record<string, HTMLImageElement>,
+  globalBgImageElement?: HTMLImageElement | null
 ) {
   // Reassign parameters with safe defaults if NaN is passed
   const safeSlideElapsed = typeof slideElapsed === 'number' && !isNaN(slideElapsed) ? slideElapsed : 0;
@@ -236,8 +238,9 @@ export function drawSlideFrame(
 
   ctx.clearRect(0, 0, width, height);
 
-  // 1. Draw Background Video (Aspect Cover)
-  let videoDrawn = false;
+  let backgroundDrawn = false;
+
+  // 1a. Draw Background Video (Slide video or global video depending on videoElement passed)
   if (videoElement && videoElement.readyState >= 2 && videoElement.videoWidth > 0 && videoElement.videoHeight > 0) {
     try {
       const videoWidth = videoElement.videoWidth;
@@ -257,19 +260,92 @@ export function drawSlideFrame(
 
       if (sw > 0 && sh > 0) {
         ctx.drawImage(videoElement, sx, sy, sw, sh, 0, 0, width, height);
-        videoDrawn = true;
+        backgroundDrawn = true;
       }
     } catch (e) {
-      // Ignore drawing errors, fall back to gradient
+      // Ignore
     }
   }
 
-  if (!videoDrawn) {
+  // 1b. Draw Slide-specific Background Image
+  if (!backgroundDrawn && slide.images && imageCache) {
+    const bgImg = slide.images.find(img => img.isBackground);
+    if (bgImg) {
+      const imgObj = imageCache[bgImg.src];
+      if (imgObj && imgObj.complete && imgObj.naturalWidth > 0) {
+        try {
+          const imgWidth = imgObj.naturalWidth;
+          const imgHeight = imgObj.naturalHeight;
+          const imgRatio = imgWidth / imgHeight;
+          const canvasRatio = width / height;
+
+          let sx = 0, sy = 0, sw = imgWidth, sh = imgHeight;
+
+          if (imgRatio > canvasRatio) {
+            sw = imgHeight * canvasRatio;
+            sx = (imgWidth - sw) / 2;
+          } else {
+            sh = imgWidth / canvasRatio;
+            sy = (imgHeight - sh) / 2;
+          }
+
+          ctx.drawImage(imgObj, sx, sy, sw, sh, 0, 0, width, height);
+          backgroundDrawn = true;
+        } catch (e) {
+          // Ignore
+        }
+      }
+    }
+  }
+
+  // 1c. Draw Global Background Image
+  if (!backgroundDrawn && globalBgImageElement && globalBgImageElement.complete && globalBgImageElement.naturalWidth > 0) {
+    try {
+      const imgWidth = globalBgImageElement.naturalWidth;
+      const imgHeight = globalBgImageElement.naturalHeight;
+      const imgRatio = imgWidth / imgHeight;
+      const canvasRatio = width / height;
+
+      let sx = 0, sy = 0, sw = imgWidth, sh = imgHeight;
+
+      if (imgRatio > canvasRatio) {
+        sw = imgHeight * canvasRatio;
+        sx = (imgWidth - sw) / 2;
+      } else {
+        sh = imgWidth / canvasRatio;
+        sy = (imgHeight - sh) / 2;
+      }
+
+      ctx.drawImage(globalBgImageElement, sx, sy, sw, sh, 0, 0, width, height);
+      backgroundDrawn = true;
+    } catch (e) {
+      // Ignore
+    }
+  }
+
+  // 1d. Fallback to Gradient
+  if (!backgroundDrawn) {
     const grad = ctx.createLinearGradient(0, 0, 0, height);
     grad.addColorStop(0, '#0f172a');
     grad.addColorStop(1, '#1e1b4b');
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, width, height);
+  }
+
+  // 1e. Draw Slide-specific Overlay Images (e.g. transparent PNGs)
+  if (slide.images && imageCache) {
+    for (const img of slide.images) {
+      if (img.isBackground) continue;
+      
+      const imgObj = imageCache[img.src];
+      if (imgObj && imgObj.complete && imgObj.naturalWidth > 0) {
+        const x = img.x !== undefined ? img.x : 0;
+        const y = img.y !== undefined ? img.y : 0;
+        const w = img.w !== undefined ? img.w : width;
+        const h = img.h !== undefined ? img.h : height;
+        ctx.drawImage(imgObj, x, y, w, h);
+      }
+    }
   }
 
   // 1b. Draw Floating Background Particles/Bubbles for premium visual motion

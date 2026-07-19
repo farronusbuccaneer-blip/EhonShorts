@@ -4,6 +4,19 @@ export interface SlideAudio {
   volume: number;
 }
 
+export interface SlideImage {
+  src: string;
+  x?: number;
+  y?: number;
+  w?: number;
+  h?: number;
+  isBackground: boolean;
+}
+
+export interface SlideVideo {
+  src: string;
+}
+
 export interface Slide {
   id: number;
   layout: string;
@@ -14,6 +27,8 @@ export interface Slide {
   choices?: string[];
   answer?: string;
   audios?: SlideAudio[];
+  images?: SlideImage[];
+  video?: SlideVideo;
 }
 
 export interface MarkdownData {
@@ -118,6 +133,79 @@ export function parseMarkdown(mdText: string): MarkdownData {
       slide.audios = audios;
     }
 
+    // Parse slide-specific background video
+    let video: SlideVideo | undefined = undefined;
+    const videoTagRegex = /<video\s+([^>]*?)\/?>|<video>([\s\S]*?)<\/video>/i;
+    const videoMatch = slideBody.match(videoTagRegex);
+    if (videoMatch) {
+      if (videoMatch[1]) {
+        const srcAttr = videoMatch[1].match(/src=["']([\s\S]*?)["']/i);
+        if (srcAttr) {
+          video = { src: srcAttr[1].trim() };
+        }
+      } else if (videoMatch[2]) {
+        video = { src: videoMatch[2].trim() };
+      }
+    }
+    if (video) slide.video = video;
+
+    // Parse slide-specific background and overlay images
+    const images: SlideImage[] = [];
+
+    // Parse <bg_image> background image tag
+    const bgImageTagRegex = /<bg_image\s+([^>]*?)\/?>|<bg_image>([\s\S]*?)<\/bg_image>/i;
+    const bgImageMatch = slideBody.match(bgImageTagRegex);
+    if (bgImageMatch) {
+      if (bgImageMatch[1]) {
+        const srcAttr = bgImageMatch[1].match(/src=["']([\s\S]*?)["']/i);
+        if (srcAttr) {
+          images.push({
+            src: srcAttr[1].trim(),
+            isBackground: true
+          });
+        }
+      } else if (bgImageMatch[2]) {
+        images.push({
+          src: bgImageMatch[2].trim(),
+          isBackground: true
+        });
+      }
+    }
+
+    // Parse <image> tags (which can be overlays with x,y,w,h coordinates, or backgrounds if no coords are given)
+    const imageTagRegex = /<image\s+([^>]*?)\/?>|<image>([\s\S]*?)<\/image>/gi;
+    let imageMatch;
+    while ((imageMatch = imageTagRegex.exec(slideBody)) !== null) {
+      if (imageMatch[1]) {
+        const attrStr = imageMatch[1];
+        const srcAttr = attrStr.match(/src=["']([\s\S]*?)["']/i);
+        const xAttr = attrStr.match(/x=["']([\s\S]*?)["']/i);
+        const yAttr = attrStr.match(/y=["']([\s\S]*?)["']/i);
+        const wAttr = attrStr.match(/w=["']([\s\S]*?)["']/i);
+        const hAttr = attrStr.match(/h=["']([\s\S]*?)["']/i);
+        
+        if (srcAttr) {
+          const hasCoords = xAttr || yAttr || wAttr || hAttr;
+          images.push({
+            src: srcAttr[1].trim(),
+            x: xAttr ? parseFloat(xAttr[1]) : undefined,
+            y: yAttr ? parseFloat(yAttr[1]) : undefined,
+            w: wAttr ? parseFloat(wAttr[1]) : undefined,
+            h: hAttr ? parseFloat(hAttr[1]) : undefined,
+            isBackground: !hasCoords // Treat as background if no coords are specified at all
+          });
+        }
+      } else if (imageMatch[2]) {
+        images.push({
+          src: imageMatch[2].trim(),
+          isBackground: true
+        });
+      }
+    }
+    if (images.length > 0) {
+      slide.images = images;
+    }
+
     result.slides.push(slide);
   }
 
@@ -156,3 +244,14 @@ export const DEFAULT_MARKDOWN = `<title>Stop VERY!</title>
 <sub_header></sub_header>
 </slide4>
 `;
+
+export function resolveAssetUrl(src: string, uploadedAssets?: Record<string, string>): string {
+  if (uploadedAssets && uploadedAssets[src]) {
+    return uploadedAssets[src];
+  }
+  if (src.startsWith('http://') || src.startsWith('https://') || src.startsWith('blob:')) {
+    return src;
+  }
+  const basePath = window.location.origin + window.location.pathname.replace(/\/(index\.html)?$/, '');
+  return `${basePath}/${src}`;
+}

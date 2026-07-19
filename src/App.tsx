@@ -11,7 +11,7 @@ import { WaveformTimeline } from './components/WaveformTimeline';
 import { 
   Film, Music, FileText, Download, 
   AlertTriangle, Check, Sparkles, 
-  Waves, Sliders, Mic, Copy
+  Waves, Sliders, Mic, Copy, Image, Trash2, Upload
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -31,6 +31,9 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'script' | 'notes' | 'assets' | 'settings'>('script');
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoFileName, setVideoFileName] = useState<string>('');
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageFileName, setImageFileName] = useState<string>('');
+  const [uploadedAssets, setUploadedAssets] = useState<Record<string, string>>({});
   const [narrationFileName, setNarrationFileName] = useState<string>('');
   const [narrationBuffer, setNarrationBuffer] = useState<AudioBuffer | null>(null);
   const [bgmFile, setBgmFile] = useState<File | null>(null);
@@ -469,6 +472,8 @@ export default function App() {
     try {
       const blob = await exportVideo({
         videoFile,
+        imageFile,
+        uploadedAssets,
         narrationBuffer,
         bgmBuffer,
         slides: parsedData.slides,
@@ -552,6 +557,8 @@ export default function App() {
           <div className="player-column">
             <VideoPreview
               videoFile={videoFile}
+              imageFile={imageFile}
+              uploadedAssets={uploadedAssets}
               slides={parsedData.slides}
               timestamps={timestamps}
               currentTime={currentTime}
@@ -877,6 +884,100 @@ export default function App() {
                         </button>
                       )}
                     </div>
+                  </div>
+
+                  {/* 4. Background Image (Optional) */}
+                  <div className="upload-card">
+                    <label className="upload-label">Background Image (Optional)</label>
+                    <div className="upload-dropzone">
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            setImageFile(file);
+                            setImageFileName(file.name);
+                          }
+                        }}
+                        style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }}
+                      />
+                      <div className="upload-icon-box" style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }}>
+                        <Image size={16} />
+                      </div>
+                      <div className="upload-info">
+                        <p className="upload-filename">{imageFileName || 'Select background image'}</p>
+                        <p className="upload-desc">Draws under text card overlays</p>
+                      </div>
+                      {imageFile && (
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setImageFile(null);
+                            setImageFileName('');
+                          }}
+                          className="upload-btn-clear"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 5. Slide Specific Assets Manager */}
+                  <div className="upload-card" style={{ background: 'rgba(30, 41, 59, 0.5)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '0.75rem', padding: '1rem' }}>
+                    <label className="upload-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                      <span>Slide Specific Assets</span>
+                      <span style={{ fontSize: '10px', color: '#94a3b8' }}>PNG/JPG/MP4 referenced in XML</span>
+                    </label>
+                    
+                    <div className="upload-dropzone" style={{ height: '70px', borderStyle: 'dashed' }}>
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp,video/mp4"
+                        multiple
+                        onChange={(e) => {
+                          const files = e.target.files;
+                          if (!files) return;
+                          const newAssets = { ...uploadedAssets };
+                          for (let i = 0; i < files.length; i++) {
+                            const file = files[i];
+                            newAssets[file.name] = URL.createObjectURL(file);
+                          }
+                          setUploadedAssets(newAssets);
+                        }}
+                        style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }}
+                      />
+                      <div className="upload-icon-box" style={{ background: 'rgba(139, 92, 246, 0.1)', color: '#8b5cf6' }}>
+                        <Upload size={16} />
+                      </div>
+                      <div className="upload-info">
+                        <p className="upload-filename">Upload files...</p>
+                        <p className="upload-desc">Click or drag files here</p>
+                      </div>
+                    </div>
+
+                    {Object.keys(uploadedAssets).length > 0 && (
+                      <div style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '150px', overflowY: 'auto' }}>
+                        {Object.keys(uploadedAssets).map((name) => (
+                          <div key={name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(15, 23, 42, 0.6)', padding: '0.35rem 0.6rem', borderRadius: '0.375rem', border: '1px solid rgba(255,255,255,0.05)', fontSize: '11px' }}>
+                            <span style={{ color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px' }} title={name}>{name}</span>
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                const newAssets = { ...uploadedAssets };
+                                URL.revokeObjectURL(newAssets[name]);
+                                delete newAssets[name];
+                                setUploadedAssets(newAssets);
+                              }}
+                              style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer', padding: '0.2rem', display: 'flex', alignItems: 'center' }}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

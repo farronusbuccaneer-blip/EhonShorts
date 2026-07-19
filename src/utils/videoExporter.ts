@@ -1,10 +1,13 @@
 import type { Slide } from './markdownParser';
+import { resolveAssetUrl } from './markdownParser';
 import { calculateDuckingEnvelope, scheduleDucking } from './audioMixer';
 import type { DuckingParams } from './audioMixer';
 import { drawSlideFrame } from './canvasDrawer';
 
 export interface ExportParams {
   videoFile: File | null;
+  imageFile: File | null;
+  uploadedAssets: Record<string, string>;
   narrationBuffer: AudioBuffer;
   bgmBuffer: AudioBuffer | null;
   slides: Slide[];
@@ -82,6 +85,8 @@ function calculateSlideThinkingTimes(
 export async function exportVideo(params: ExportParams): Promise<Blob> {
   const {
     videoFile,
+    imageFile,
+    uploadedAssets,
     narrationBuffer,
     bgmBuffer,
     slides,
@@ -93,6 +98,57 @@ export async function exportVideo(params: ExportParams): Promise<Blob> {
   } = params;
 
   const totalDuration = narrationBuffer.duration;
+
+  // 1. Preload all image assets
+  const imageCache: Record<string, HTMLImageElement> = {};
+  
+  // Load global background image if present
+  let globalBgImageElement: HTMLImageElement | null = null;
+  if (imageFile) {
+    globalBgImageElement = new Image();
+    globalBgImageElement.src = URL.createObjectURL(imageFile);
+    await new Promise<void>((resolve) => {
+      globalBgImageElement!.onload = () => resolve();
+      globalBgImageElement!.onerror = () => resolve();
+    });
+  }
+  
+  // Load slide-specific images
+  const imagePromises: Promise<void>[] = [];
+  for (const slide of slides) {
+    if (slide.images) {
+      for (const img of slide.images) {
+        const resolved = resolveAssetUrl(img.src, uploadedAssets);
+        if (!imageCache[img.src]) {
+          const imageObj = new Image();
+          imageObj.src = resolved;
+          imageCache[img.src] = imageObj;
+          const p = new Promise<void>((resolve) => {
+            imageObj.onload = () => resolve();
+            imageObj.onerror = () => resolve();
+          });
+          imagePromises.push(p);
+        }
+      }
+    }
+  }
+  await Promise.all(imagePromises);
+
+  // 1c. Load slide-specific video elements
+  const slideVideoElements: Record<number, HTMLVideoElement> = {};
+  for (let i = 0; i < slides.length; i++) {
+    const slide = slides[i];
+    if (slide.video) {
+      const resolved = resolveAssetUrl(slide.video.src, uploadedAssets);
+      const sVideoEl = document.createElement('video');
+      sVideoEl.src = resolved;
+      sVideoEl.muted = true;
+      sVideoEl.playsInline = true;
+      sVideoEl.preload = 'auto';
+      slideVideoElements[i] = sVideoEl;
+      sVideoEl.load();
+    }
+  }
 
   // 1. Create offline video player for background rendering
   let videoEl: HTMLVideoElement | null = null;
@@ -203,10 +259,11 @@ export async function exportVideo(params: ExportParams): Promise<Blob> {
   // 6. Define rendering loop
   let animationId: number;
   const startTime = audioCtx.currentTime;
+  let lastActiveVideoEl: HTMLVideoElement | null = null;
 
   if (videoEl) {
-    videoEl.currentTime = 0;
     try {
+      videoEl.currentTime = 0;
       await videoEl.play();
     } catch (e) {
       console.warn("Auto-play failed, video rendering fallback to static frame. Error:", e);
@@ -220,7 +277,7 @@ export async function exportVideo(params: ExportParams): Promise<Blob> {
   mediaRecorder.start();
 
   const renderPromise = new Promise<Blob>((resolve) => {
-    function renderFrame() {
+    async function renderFrame() {
       const elapsed = audioCtx.currentTime - startTime;
 
       if (elapsed >= totalDuration) {
@@ -229,6 +286,10 @@ export async function exportVideo(params: ExportParams): Promise<Blob> {
         narrationSource.stop();
         if (bgmSource) bgmSource.stop();
         if (videoEl) videoEl.pause();
+        // Pause all slide video elements
+        Object.values(slideVideoElements).forEach(sVideo => {
+          try { sVideo.pause(); } catch(e){}
+        });
         audioCtx.close();
         cancelAnimationFrame(animationId);
         clearTimeout(animationId);
@@ -239,11 +300,6 @@ export async function exportVideo(params: ExportParams): Promise<Blob> {
           resolve(finalBlob);
         };
         return;
-      }
-
-      // Sync background video if playing
-      if (videoEl && Math.abs(videoEl.currentTime - elapsed) > 0.3) {
-        videoEl.currentTime = elapsed;
       }
 
       // Find active slide and compile details
@@ -271,18 +327,43 @@ export async function exportVideo(params: ExportParams): Promise<Blob> {
         }
       }
 
+      // Determine which video element to use (slide-specific or global)
+      const slideVideoEl = slideVideoElements[activeSlideIdx];
+      const activeVideoEl = slideVideoEl || videoEl;
+
+      // Handle video switching, seek, and playback in export rendering
+      if (activeVideoEl !== lastActiveVideoEl) {
+        if (lastActiveVideoEl) {
+          try { lastActiveVideoEl.pause(); } catch (e) {}
+        }
+        if (activeVideoEl) {
+          try {
+            activeVideoEl.currentTime = elapsed - (slideVideoEl ? timestamps[activeSlideIdx] : 0);
+            await activeVideoEl.play();
+          } catch (e) {}
+        }
+        lastActiveVideoEl = activeVideoEl;
+      } else if (activeVideoEl) {
+        const targetTime = elapsed - (slideVideoEl ? timestamps[activeSlideIdx] : 0);
+        if (Math.abs(activeVideoEl.currentTime - targetTime) > 0.3) {
+          activeVideoEl.currentTime = targetTime;
+        }
+      }
+
       // Draw onto canvas
       drawSlideFrame(
         ctx!,
         canvas.width,
         canvas.height,
-        videoEl,
+        activeVideoEl,
         activeSlide,
         isThinkingTime,
         thinkingProgress,
         title,
         hook,
-        elapsed - timestamps[activeSlideIdx]
+        elapsed - timestamps[activeSlideIdx],
+        imageCache,
+        globalBgImageElement
       );
 
       // Report progress
@@ -307,3 +388,4 @@ export async function exportVideo(params: ExportParams): Promise<Blob> {
 
   return renderPromise;
 }
+
