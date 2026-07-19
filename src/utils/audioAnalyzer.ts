@@ -166,6 +166,10 @@ function cleanTextForTts(text: string): string {
   // Strip out HTML-like styling tags (e.g. <yellow>, </red>, etc.)
   let cleaned = text.replace(/<\/?[a-zA-Z]+>/g, ' ');
 
+  // Replace ellipsis and multi-dot runs (2 or more dots) with spaces so they are silent
+  cleaned = cleaned.replace(/[\u2026\u22ef]+/g, ' ');
+  cleaned = cleaned.replace(/\.{2,}/g, ' ');
+
   // Replace quotation marks and brackets with spaces
   cleaned = cleaned.replace(/[「」『』"'\(\)\[\]\{\}（）<>＜＞《》【】]/g, ' ');
   

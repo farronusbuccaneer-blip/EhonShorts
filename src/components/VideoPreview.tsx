@@ -264,7 +264,8 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
       const headerSegments = splitTextByLanguage(cleanHeader);
       
       headerSegments.forEach(seg => {
-        const cleanText = seg.text.replace(/[「」『』"'\(\)\[\]\{\}（）<>＜＞《》【】]/g, ' ').trim();
+        let cleanText = seg.text.replace(/[「」『』"'\(\)\[\]\{\}（）<>＜＞《》【】]/g, ' ');
+        cleanText = cleanText.replace(/[\u2026\u22ef]+/g, ' ').replace(/\.{2,}/g, ' ').trim();
         if (!cleanText) return;
         
         const utterance = new SpeechSynthesisUtterance(cleanText);
@@ -285,7 +286,8 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
       const subSegments = splitTextByLanguage(cleanSubHeader);
       
       subSegments.forEach(seg => {
-        const cleanText = seg.text.replace(/[「」『』"'\(\)\[\]\{\}（）<>＜＞《》【】]/g, ' ').trim();
+        let cleanText = seg.text.replace(/[「」『』"'\(\)\[\]\{\}（）<>＜＞《》【】]/g, ' ');
+        cleanText = cleanText.replace(/[\u2026\u22ef]+/g, ' ').replace(/\.{2,}/g, ' ').trim();
         if (!cleanText) return;
         
         const utterance = new SpeechSynthesisUtterance(cleanText);
