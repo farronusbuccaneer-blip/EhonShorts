@@ -151,8 +151,8 @@ export const DEFAULT_MARKDOWN = `<title>Stop VERY!</title>
 </slide3>
 
 <slide4>
-<layout>list_layout</layout>
-<header>ループで復習！</header>
-<sub_header>これらは日常会話で本当によく使います。忘れないように、今すぐ…</sub_header>
+<layout>hook_layout</layout>
+<header>忘れないように、今すぐ…</header>
+<sub_header></sub_header>
 </slide4>
 `;
