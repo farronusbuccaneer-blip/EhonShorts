@@ -183,7 +183,7 @@ function cleanTextForTts(text: string): string {
  * For example: "very cold の代わりに使うネイティブ表現" ->
  *   [{ text: "very cold", lang: "en" }, { text: "の代わりに使うネイティブ表現", lang: "ja" }]
  */
-function splitTextByLanguage(text: string): { text: string; lang: 'ja' | 'en' }[] {
+export function splitTextByLanguage(text: string): { text: string; lang: 'ja' | 'en' }[] {
   const trimmed = text.trim();
   if (!trimmed) return [];
 
@@ -506,7 +506,7 @@ export async function generateTtsNarration(
       return src;
     }
     const basePath = window.location.origin + window.location.pathname.replace(/\/(index\.html)?$/, '');
-    return `${basePath}/audio/${src}`;
+    return `${basePath}/audio/${src}?v=3`;
   };
 
   // Load and decode slide sound effects in parallel

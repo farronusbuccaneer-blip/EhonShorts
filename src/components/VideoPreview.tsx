@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import type { Slide } from '../utils/markdownParser';
 import { drawSlideFrame } from '../utils/canvasDrawer';
+import { splitTextByLanguage } from '../utils/audioAnalyzer';
 import { Play, Pause, RotateCcw, Volume2 } from 'lucide-react';
 
 interface VideoPreviewProps {
@@ -226,7 +227,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
         return src;
       }
       const basePath = window.location.origin + window.location.pathname.replace(/\/(index\.html)?$/, '');
-      return `${basePath}/audio/${src}`;
+      return `${basePath}/audio/${src}?v=3`;
     };
 
     // Play slide specific sound effects in real-time preview (offline fallback)
@@ -258,22 +259,46 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     // Speak slide text
     window.speechSynthesis.cancel(); // Stop any current speech immediately
 
-    // For English header:
+    // Speak English / Japanese segments in Slide Header:
     if (slide.header) {
       const cleanHeader = slide.header.replace(/<\/?[a-zA-Z]+>/g, ' ');
-      const engUtterance = new SpeechSynthesisUtterance(cleanHeader);
-      engUtterance.lang = 'en-US';
-      engUtterance.rate = 1.0;
-      window.speechSynthesis.speak(engUtterance);
+      const headerSegments = splitTextByLanguage(cleanHeader);
+      
+      headerSegments.forEach(seg => {
+        const cleanText = seg.text.replace(/[「」『』"'\(\)\[\]\{\}（）<>＜＞《》【】]/g, ' ').trim();
+        if (!cleanText) return;
+        
+        const utterance = new SpeechSynthesisUtterance(cleanText);
+        if (seg.lang === 'en') {
+          utterance.lang = 'en-US';
+          utterance.rate = 1.0;
+        } else {
+          utterance.lang = 'ja-JP';
+          utterance.rate = 1.1;
+        }
+        window.speechSynthesis.speak(utterance);
+      });
     }
 
-    // For Japanese subtitle (unless it's the last slide):
+    // Speak English / Japanese segments in Subtitle (unless it's the last slide):
     if (!isLast && slide.sub_header) {
       const cleanSubHeader = slide.sub_header.replace(/<\/?[a-zA-Z]+>/g, ' ');
-      const jaUtterance = new SpeechSynthesisUtterance(cleanSubHeader);
-      jaUtterance.lang = 'ja-JP';
-      jaUtterance.rate = 1.1; // Slightly faster Japanese
-      window.speechSynthesis.speak(jaUtterance);
+      const subSegments = splitTextByLanguage(cleanSubHeader);
+      
+      subSegments.forEach(seg => {
+        const cleanText = seg.text.replace(/[「」『』"'\(\)\[\]\{\}（）<>＜＞《》【】]/g, ' ').trim();
+        if (!cleanText) return;
+        
+        const utterance = new SpeechSynthesisUtterance(cleanText);
+        if (seg.lang === 'en') {
+          utterance.lang = 'en-US';
+          utterance.rate = 1.0;
+        } else {
+          utterance.lang = 'ja-JP';
+          utterance.rate = 1.1; // Slightly faster Japanese
+        }
+        window.speechSynthesis.speak(utterance);
+      });
     }
     
     return () => {
