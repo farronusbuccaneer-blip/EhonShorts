@@ -540,11 +540,14 @@ export async function generateTtsNarration(
   const lastBuffer = buffers[buffers.length - 1];
   let totalDuration = currentOffset + (lastBuffer ? lastBuffer.duration : 4.0);
   
-  // Extend totalDuration if any sound effect extends past it
+  // Extend totalDuration if any sound effect on the LAST slide extends past it
+  // (Other sound effects are gated to slide transitions, so they cannot extend past their slide end time)
   for (const fx of soundEffects) {
-    const fxEnd = fx.startOffset + fx.buffer.duration;
-    if (fxEnd > totalDuration) {
-      totalDuration = fxEnd;
+    if (fx.slideIndex === slides.length - 1) {
+      const fxEnd = fx.startOffset + fx.buffer.duration;
+      if (fxEnd > totalDuration) {
+        totalDuration = fxEnd;
+      }
     }
   }
   
