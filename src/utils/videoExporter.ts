@@ -134,33 +134,41 @@ export async function exportVideo(params: ExportParams): Promise<Blob> {
   }
   await Promise.all(imagePromises);
 
+  // Helper to create and attach hidden video elements to the DOM
+  // Browsers require video elements to be attached to the DOM tree for active hardware frame decoding & canvas updating!
+  const createAttachedVideoElement = (src: string): HTMLVideoElement => {
+    const v = document.createElement('video');
+    v.src = src;
+    v.muted = true;
+    v.loop = true;
+    v.playsInline = true;
+    v.preload = 'auto';
+    v.style.position = 'fixed';
+    v.style.top = '-9999px';
+    v.style.left = '-9999px';
+    v.style.width = '1px';
+    v.style.height = '1px';
+    v.style.opacity = '0.01';
+    v.style.pointerEvents = 'none';
+    document.body.appendChild(v);
+    v.load();
+    return v;
+  };
+
   // 1c. Load slide-specific video elements
   const slideVideoElements: Record<number, HTMLVideoElement> = {};
   for (let i = 0; i < slides.length; i++) {
     const slide = slides[i];
     if (slide.video) {
       const resolved = resolveAssetUrl(slide.video.src, uploadedAssets);
-      const sVideoEl = document.createElement('video');
-      sVideoEl.src = resolved;
-      sVideoEl.muted = true;
-      sVideoEl.loop = true;
-      sVideoEl.playsInline = true;
-      sVideoEl.preload = 'auto';
-      slideVideoElements[i] = sVideoEl;
-      sVideoEl.load();
+      slideVideoElements[i] = createAttachedVideoElement(resolved);
     }
   }
 
-  // 1. Create offline video player for background rendering
+  // 1. Create video player for background rendering
   let videoEl: HTMLVideoElement | null = null;
   if (videoFile) {
-    videoEl = document.createElement('video');
-    videoEl.src = URL.createObjectURL(videoFile);
-    videoEl.muted = true;
-    videoEl.loop = true;
-    videoEl.playsInline = true;
-    videoEl.preload = 'auto';
-    videoEl.load();
+    videoEl = createAttachedVideoElement(URL.createObjectURL(videoFile));
 
     // Wait for video metadata & initial frame to be ready
     await new Promise<void>((resolve) => {
@@ -182,6 +190,17 @@ export async function exportVideo(params: ExportParams): Promise<Blob> {
       }
     });
   }
+
+  const cleanupVideos = () => {
+    if (videoEl) {
+      try { videoEl.pause(); } catch (e) {}
+      try { document.body.removeChild(videoEl); } catch (e) {}
+    }
+    Object.values(slideVideoElements).forEach(sVideo => {
+      try { sVideo.pause(); } catch (e) {}
+      try { document.body.removeChild(sVideo); } catch (e) {}
+    });
+  };
 
   // 2. Setup Web Audio API destination for recording
   const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
@@ -236,7 +255,10 @@ export async function exportVideo(params: ExportParams): Promise<Blob> {
   canvas.width = 720;
   canvas.height = 1280;
   const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Could not get 2D context');
+  if (!ctx) {
+    cleanupVideos();
+    throw new Error('Could not get 2D context');
+  }
 
   // 5. Setup MediaRecorder
   const mimeTypes = [
@@ -301,11 +323,7 @@ export async function exportVideo(params: ExportParams): Promise<Blob> {
         mediaRecorder.stop();
         narrationSource.stop();
         if (bgmSource) bgmSource.stop();
-        if (videoEl) videoEl.pause();
-        // Pause all slide video elements
-        Object.values(slideVideoElements).forEach(sVideo => {
-          try { sVideo.pause(); } catch(e){}
-        });
+        cleanupVideos();
         audioCtx.close();
         cancelAnimationFrame(animationId);
         clearTimeout(animationId);
@@ -363,7 +381,10 @@ export async function exportVideo(params: ExportParams): Promise<Blob> {
           } catch (e) {}
           lastActiveVideoEl = activeVideoEl;
         } else {
-          if (Math.abs(activeVideoEl.currentTime - targetTime) > 0.3) {
+          if (activeVideoEl.paused) {
+            try { await activeVideoEl.play(); } catch (e) {}
+          }
+          if (Math.abs(activeVideoEl.currentTime - targetTime) > 0.2) {
             activeVideoEl.currentTime = targetTime;
           }
         }
