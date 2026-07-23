@@ -143,6 +143,7 @@ export async function exportVideo(params: ExportParams): Promise<Blob> {
       const sVideoEl = document.createElement('video');
       sVideoEl.src = resolved;
       sVideoEl.muted = true;
+      sVideoEl.loop = true;
       sVideoEl.playsInline = true;
       sVideoEl.preload = 'auto';
       slideVideoElements[i] = sVideoEl;
@@ -156,11 +157,26 @@ export async function exportVideo(params: ExportParams): Promise<Blob> {
     videoEl = document.createElement('video');
     videoEl.src = URL.createObjectURL(videoFile);
     videoEl.muted = true;
+    videoEl.loop = true;
     videoEl.playsInline = true;
-    // Wait for video metadata to load
+    videoEl.preload = 'auto';
+    videoEl.load();
+
+    // Wait for video metadata & initial frame to be ready
     await new Promise<void>((resolve) => {
-      if (videoEl) {
-        videoEl.onloadedmetadata = () => resolve();
+      if (videoEl && (videoEl.readyState >= 1 || videoEl.videoWidth > 0)) {
+        videoEl.currentTime = 0;
+        resolve();
+      } else if (videoEl) {
+        const onReady = () => {
+          if (videoEl) videoEl.currentTime = 0;
+          resolve();
+        };
+        videoEl.onloadedmetadata = onReady;
+        videoEl.onloadeddata = onReady;
+        videoEl.oncanplay = onReady;
+        videoEl.onerror = () => resolve();
+        setTimeout(resolve, 1500);
       } else {
         resolve();
       }
@@ -331,22 +347,25 @@ export async function exportVideo(params: ExportParams): Promise<Blob> {
       const slideVideoEl = slideVideoElements[activeSlideIdx];
       const activeVideoEl = slideVideoEl || videoEl;
 
-      // Handle video switching, seek, and playback in export rendering
-      if (activeVideoEl !== lastActiveVideoEl) {
-        if (lastActiveVideoEl) {
-          try { lastActiveVideoEl.pause(); } catch (e) {}
-        }
-        if (activeVideoEl) {
+      // Handle video switching, seek, and looping playback in export rendering
+      if (activeVideoEl) {
+        const duration = activeVideoEl.duration && !isNaN(activeVideoEl.duration) && activeVideoEl.duration > 0 ? activeVideoEl.duration : 1;
+        const rawTarget = elapsed - (slideVideoEl ? timestamps[activeSlideIdx] : 0);
+        const targetTime = rawTarget % duration;
+
+        if (activeVideoEl !== lastActiveVideoEl) {
+          if (lastActiveVideoEl) {
+            try { lastActiveVideoEl.pause(); } catch (e) {}
+          }
           try {
-            activeVideoEl.currentTime = elapsed - (slideVideoEl ? timestamps[activeSlideIdx] : 0);
+            activeVideoEl.currentTime = targetTime;
             await activeVideoEl.play();
           } catch (e) {}
-        }
-        lastActiveVideoEl = activeVideoEl;
-      } else if (activeVideoEl) {
-        const targetTime = elapsed - (slideVideoEl ? timestamps[activeSlideIdx] : 0);
-        if (Math.abs(activeVideoEl.currentTime - targetTime) > 0.3) {
-          activeVideoEl.currentTime = targetTime;
+          lastActiveVideoEl = activeVideoEl;
+        } else {
+          if (Math.abs(activeVideoEl.currentTime - targetTime) > 0.3) {
+            activeVideoEl.currentTime = targetTime;
+          }
         }
       }
 

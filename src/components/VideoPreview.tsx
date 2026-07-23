@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState, useMemo } from 'react';
 import type { Slide } from '../utils/markdownParser';
 import { resolveAssetUrl } from '../utils/markdownParser';
 import { drawSlideFrame } from '../utils/canvasDrawer';
-import { splitTextByLanguage } from '../utils/audioAnalyzer';
+import { splitTextByLanguage, splitTextByPunctuation } from '../utils/audioAnalyzer';
 import { Play, Pause, RotateCcw, Volume2 } from 'lucide-react';
 
 interface VideoPreviewProps {
@@ -102,13 +102,16 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     }
   }, [slides, uploadedAssets]);
 
-  // Sync background video element currentTime with the global currentTime
+  // Sync background video element currentTime with the global currentTime (looping modulo duration)
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
-    if (Math.abs(video.currentTime - currentTime) > 0.25) {
-      video.currentTime = currentTime;
+    const duration = video.duration && !isNaN(video.duration) && video.duration > 0 ? video.duration : 1;
+    const targetTime = currentTime % duration;
+
+    if (Math.abs(video.currentTime - targetTime) > 0.25) {
+      video.currentTime = targetTime;
     }
   }, [currentTime]);
 
@@ -149,16 +152,18 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     }
   }, [activeSlide, uploadedAssets]);
 
-  // Sync slide-specific video element currentTime with the slide elapsed time
+  // Sync slide-specific video element currentTime with the slide elapsed time (looping modulo duration)
   useEffect(() => {
     const sVideo = slideVideoRef.current;
     if (!sVideo) return;
 
     const slideStart = timestamps[activeSlideIdx] || 0;
-    const elapsed = currentTime - slideStart;
+    const rawTarget = currentTime - slideStart;
+    const duration = sVideo.duration && !isNaN(sVideo.duration) && sVideo.duration > 0 ? sVideo.duration : 1;
+    const targetTime = rawTarget % duration;
 
-    if (Math.abs(sVideo.currentTime - elapsed) > 0.25) {
-      sVideo.currentTime = elapsed;
+    if (Math.abs(sVideo.currentTime - targetTime) > 0.25) {
+      sVideo.currentTime = targetTime;
     }
   }, [currentTime, activeSlideIdx, timestamps, slideVideoUrl]);
 
@@ -341,28 +346,36 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     window.speechSynthesis.cancel();
 
     if (slide.header) {
-      const cleanHeader = slide.header.replace(/<\/?[a-zA-Z]+>/g, ' ');
-      const headerSegments = splitTextByLanguage(cleanHeader);
-      headerSegments.forEach(seg => {
-        const cleanText = seg.text.replace(/[「」『』"'\(\)\[\]\{\}（）<>＜＞《》【】、。,\.\u2026\u22ef]/g, ' ').trim();
-        if (!cleanText) return;
-        const utterance = new SpeechSynthesisUtterance(cleanText);
-        utterance.lang = seg.lang === 'en' ? 'en-US' : 'ja-JP';
-        utterance.rate = seg.lang === 'en' ? 1.0 : 1.1;
-        window.speechSynthesis.speak(utterance);
+      const chunks = splitTextByPunctuation(slide.header);
+      chunks.forEach(chunk => {
+        if (!chunk.isPause && chunk.text) {
+          const headerSegments = splitTextByLanguage(chunk.text);
+          headerSegments.forEach(seg => {
+            const cleanText = seg.text.replace(/[「」『』"'\(\)\[\]\{\}（）<>＜＞《》【】]/g, ' ').trim();
+            if (!cleanText) return;
+            const utterance = new SpeechSynthesisUtterance(cleanText);
+            utterance.lang = seg.lang === 'en' ? 'en-US' : 'ja-JP';
+            utterance.rate = seg.lang === 'en' ? 1.0 : 1.1;
+            window.speechSynthesis.speak(utterance);
+          });
+        }
       });
     }
 
     if (slide.sub_header) {
-      const cleanSubHeader = slide.sub_header.replace(/<\/?[a-zA-Z]+>/g, ' ');
-      const subSegments = splitTextByLanguage(cleanSubHeader);
-      subSegments.forEach(seg => {
-        const cleanText = seg.text.replace(/[「」『』"'\(\)\[\]\{\}（）<>＜＞《》【】、。,\.\u2026\u22ef]/g, ' ').trim();
-        if (!cleanText) return;
-        const utterance = new SpeechSynthesisUtterance(cleanText);
-        utterance.lang = seg.lang === 'en' ? 'en-US' : 'ja-JP';
-        utterance.rate = seg.lang === 'en' ? 1.0 : 1.1;
-        window.speechSynthesis.speak(utterance);
+      const chunks = splitTextByPunctuation(slide.sub_header);
+      chunks.forEach(chunk => {
+        if (!chunk.isPause && chunk.text) {
+          const subSegments = splitTextByLanguage(chunk.text);
+          subSegments.forEach(seg => {
+            const cleanText = seg.text.replace(/[「」『』"'\(\)\[\]\{\}（）<>＜＞《》【】]/g, ' ').trim();
+            if (!cleanText) return;
+            const utterance = new SpeechSynthesisUtterance(cleanText);
+            utterance.lang = seg.lang === 'en' ? 'en-US' : 'ja-JP';
+            utterance.rate = seg.lang === 'en' ? 1.0 : 1.1;
+            window.speechSynthesis.speak(utterance);
+          });
+        }
       });
     }
     
@@ -390,10 +403,12 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
             className="hidden"
             playsInline
             muted
+            loop
+            preload="auto"
+            autoPlay
             onLoadedData={() => setVideoLoaded(true)}
-            onEnded={() => {
-              if (isPlaying) onTogglePlay();
-            }}
+            onLoadedMetadata={() => setVideoLoaded(true)}
+            onCanPlay={() => setVideoLoaded(true)}
           />
         )}
 
@@ -404,6 +419,9 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
             className="hidden"
             playsInline
             muted
+            loop
+            preload="auto"
+            autoPlay
           />
         )}
       </div>

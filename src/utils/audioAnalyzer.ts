@@ -158,24 +158,39 @@ export function alignSlidesHeuristically(
   return transitionTimestamps;
 }
 
-/**
- * Helper to clean brackets and quotation marks so they are not read by the TTS voice.
- * Also normalizes common typo characters like Korean particle '의' to Japanese 'の'.
- */
-function cleanTextForTts(text: string): string {
-  // Strip out HTML-like styling tags (e.g. <yellow>, </red>, etc.)
-  let cleaned = text.replace(/<\/?[a-zA-Z]+>/g, ' ');
 
-  // Replace punctuation, quotation marks, commas, periods, and brackets with spaces so they are silent
-  cleaned = cleaned.replace(/[「」『』"'\(\)\[\]\{\}（）<>＜＞《》【】、。,\.\u2026\u22ef]/g, ' ');
-  
-  // Replace Korean particle '의' with Japanese 'の' to prevent voice crashes
-  cleaned = cleaned.replace(/의/g, 'の');
-  
-  // Clean up CJK punctuation symbols
-  cleaned = cleaned.replace(/[・＝★▲◆●■•·]/g, ' ');
-  
-  return cleaned.replace(/\s+/g, ' ').trim();
+
+export interface TextChunk {
+  text: string;
+  isPause: boolean;
+  pauseDuration?: number;
+}
+
+/**
+ * Splits text by punctuation marks (..., …, ⋯, 、, 。, ,, .) into text chunks and silent breath pause chunks.
+ */
+export function splitTextByPunctuation(text: string): TextChunk[] {
+  const cleanHtml = text.replace(/<\/?[a-zA-Z]+>/g, ' ');
+  const regex = /(\u2026|\u22ef|\.{3,}|[\u3001\u3002,\.!\?\uff01\uff1f])/g;
+  const chunks: TextChunk[] = [];
+  const parts = cleanHtml.split(regex);
+
+  for (const part of parts) {
+    if (!part) continue;
+
+    if (/^(\u2026|\u22ef|\.{3,}|[\u3001\u3002,\.!\?\uff01\uff1f])$/.test(part)) {
+      const isEllipsisOrPeriod = /^(\u2026|\u22ef|\.{3,}|\u3002|\.)$/.test(part);
+      const pauseDuration = isEllipsisOrPeriod ? 0.35 : 0.25;
+      chunks.push({ text: '', isPause: true, pauseDuration });
+    } else {
+      const cleanPart = part.replace(/[「」『』"'\(\)\[\]\{\}（）<>＜＞《》【】・＝★▲◆●■•·]/g, ' ').trim();
+      if (cleanPart) {
+        chunks.push({ text: cleanPart, isPause: false });
+      }
+    }
+  }
+
+  return chunks;
 }
 
 /**
@@ -347,85 +362,76 @@ async function fetchTtsClip(
   useVoiceVox: boolean,
   apiKeys: ApiKeys = {}
 ): Promise<AudioBuffer | null> {
-  const cleaned = cleanTextForTts(text);
-  const segments = splitTextByLanguage(cleaned);
-  if (segments.length === 0) return null;
+  const chunks = splitTextByPunctuation(text);
+  if (chunks.length === 0) return null;
 
-  const segmentBuffers: AudioBuffer[] = [];
+  const clipBuffers: AudioBuffer[] = [];
   const sampleRate = audioCtx.sampleRate;
 
-  for (const seg of segments) {
-    let buf: AudioBuffer | null = null;
-    
-    if (seg.lang === 'ja') {
-      if (useVoiceVox) {
-        // 1. Try local VOICEVOX (speaker 2: Shikoku Metan)
-        buf = await fetchVoiceVoxClip(seg.text, 2, audioCtx);
-      }
-      // 2. Fallback to API keys or Google Translate Japanese
-      if (!buf) {
-        if (apiKeys.openAiKey) {
-          buf = await fetchOpenAiTtsClip(seg.text, apiKeys.openAiVoice || 'alloy', apiKeys.openAiKey, audioCtx);
-        } else if (apiKeys.voiceRssKey) {
-          buf = await fetchVoiceRssTtsClip(seg.text, 'ja', apiKeys.voiceRssKey, audioCtx);
-        } else {
-          buf = await fetchGoogleTtsClip(seg.text, 'ja', audioCtx, apiKeys.cfWorkerUrl);
-        }
-      }
-      
-      // Speed up Japanese segments by 1.30x to sound energetic and fast-paced
-      if (buf) {
-        buf = speedUpAudioBuffer(buf, 1.30, audioCtx);
+  for (const chunk of chunks) {
+    if (chunk.isPause) {
+      const pauseSamples = Math.floor((chunk.pauseDuration || 0.25) * sampleRate);
+      if (pauseSamples > 0) {
+        const pauseBuffer = audioCtx.createBuffer(1, pauseSamples, sampleRate);
+        clipBuffers.push(pauseBuffer);
       }
     } else {
-      // English segment
-      if (apiKeys.openAiKey) {
-        buf = await fetchOpenAiTtsClip(seg.text, apiKeys.openAiVoice || 'alloy', apiKeys.openAiKey, audioCtx);
-      } else if (apiKeys.voiceRssKey) {
-        buf = await fetchVoiceRssTtsClip(seg.text, 'en', apiKeys.voiceRssKey, audioCtx);
-      } else {
-        buf = await fetchGoogleTtsClip(seg.text, 'en', audioCtx, apiKeys.cfWorkerUrl);
-      }
-    }
+      const segments = splitTextByLanguage(chunk.text);
+      for (const seg of segments) {
+        let buf: AudioBuffer | null = null;
+        
+        if (seg.lang === 'ja') {
+          if (useVoiceVox) {
+            buf = await fetchVoiceVoxClip(seg.text, 2, audioCtx);
+          }
+          if (!buf) {
+            if (apiKeys.openAiKey) {
+              buf = await fetchOpenAiTtsClip(seg.text, apiKeys.openAiVoice || 'alloy', apiKeys.openAiKey, audioCtx);
+            } else if (apiKeys.voiceRssKey) {
+              buf = await fetchVoiceRssTtsClip(seg.text, 'ja', apiKeys.voiceRssKey, audioCtx);
+            } else {
+              buf = await fetchGoogleTtsClip(seg.text, 'ja', audioCtx, apiKeys.cfWorkerUrl);
+            }
+          }
+          if (buf) {
+            buf = speedUpAudioBuffer(buf, 1.30, audioCtx);
+          }
+        } else {
+          if (apiKeys.openAiKey) {
+            buf = await fetchOpenAiTtsClip(seg.text, apiKeys.openAiVoice || 'alloy', apiKeys.openAiKey, audioCtx);
+          } else if (apiKeys.voiceRssKey) {
+            buf = await fetchVoiceRssTtsClip(seg.text, 'en', apiKeys.voiceRssKey, audioCtx);
+          } else {
+            buf = await fetchGoogleTtsClip(seg.text, 'en', audioCtx, apiKeys.cfWorkerUrl);
+          }
+        }
 
-    if (buf) {
-      segmentBuffers.push(buf);
-    }
-  }
-
-  if (segmentBuffers.length === 1) {
-    return segmentBuffers[0];
-  }
-
-  // Concatenate multiple language segments for a single line with small pauses (0.15 seconds)
-  let totalDuration = 0;
-  const positions: number[] = [];
-  
-  for (let i = 0; i < segmentBuffers.length; i++) {
-    positions.push(totalDuration);
-    totalDuration += segmentBuffers[i].duration;
-    if (i < segmentBuffers.length - 1) {
-      totalDuration += 0.0; // 0ms segment pause
-    }
-  }
-
-  const combinedLen = Math.max(1, Math.floor(totalDuration * sampleRate));
-  const combinedBuffer = audioCtx.createBuffer(1, combinedLen, sampleRate);
-  const combinedData = combinedBuffer.getChannelData(0);
-
-  for (let i = 0; i < segmentBuffers.length; i++) {
-    const buf = segmentBuffers[i];
-    const startSample = Math.floor(positions[i] * sampleRate);
-    const data = buf.getChannelData(0);
-    
-    for (let j = 0; j < data.length; j++) {
-      if (startSample + j < combinedData.length) {
-        combinedData[startSample + j] = data[j];
+        if (buf) {
+          clipBuffers.push(buf);
+        }
       }
     }
   }
 
-  return combinedBuffer;
+  if (clipBuffers.length === 0) return null;
+  if (clipBuffers.length === 1) return clipBuffers[0];
+
+  let totalLen = 0;
+  for (const b of clipBuffers) {
+    totalLen += b.length;
+  }
+
+  const resultBuffer = audioCtx.createBuffer(1, Math.max(1, totalLen), sampleRate);
+  const resultData = resultBuffer.getChannelData(0);
+
+  let offset = 0;
+  for (const b of clipBuffers) {
+    const data = b.getChannelData(0);
+    resultData.set(data, offset);
+    offset += b.length;
+  }
+
+  return resultBuffer;
 }
 
 /**

@@ -241,7 +241,7 @@ export function drawSlideFrame(
   let backgroundDrawn = false;
 
   // 1a. Draw Background Video (Slide video or global video depending on videoElement passed)
-  if (videoElement && videoElement.readyState >= 2 && videoElement.videoWidth > 0 && videoElement.videoHeight > 0) {
+  if (videoElement && (videoElement.readyState >= 1 || videoElement.videoWidth > 0) && videoElement.videoWidth > 0 && videoElement.videoHeight > 0) {
     try {
       const videoWidth = videoElement.videoWidth;
       const videoHeight = videoElement.videoHeight;
