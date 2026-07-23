@@ -110,7 +110,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     const duration = video.duration && !isNaN(video.duration) && video.duration > 0 ? video.duration : 1;
     const targetTime = currentTime % duration;
 
-    if (Math.abs(video.currentTime - targetTime) > 0.25) {
+    if (Math.abs(video.currentTime - targetTime) > 1.5) {
       video.currentTime = targetTime;
     }
   }, [currentTime]);
@@ -162,7 +162,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     const duration = sVideo.duration && !isNaN(sVideo.duration) && sVideo.duration > 0 ? sVideo.duration : 1;
     const targetTime = rawTarget % duration;
 
-    if (Math.abs(sVideo.currentTime - targetTime) > 0.25) {
+    if (Math.abs(sVideo.currentTime - targetTime) > 1.5) {
       sVideo.currentTime = targetTime;
     }
   }, [currentTime, activeSlideIdx, timestamps, slideVideoUrl]);

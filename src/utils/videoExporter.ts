@@ -367,24 +367,27 @@ export async function exportVideo(params: ExportParams): Promise<Blob> {
 
       // Handle video switching, seek, and looping playback in export rendering
       if (activeVideoEl) {
-        const duration = activeVideoEl.duration && !isNaN(activeVideoEl.duration) && activeVideoEl.duration > 0 ? activeVideoEl.duration : 1;
-        const rawTarget = elapsed - (slideVideoEl ? timestamps[activeSlideIdx] : 0);
-        const targetTime = rawTarget % duration;
-
         if (activeVideoEl !== lastActiveVideoEl) {
           if (lastActiveVideoEl) {
             try { lastActiveVideoEl.pause(); } catch (e) {}
           }
           try {
-            activeVideoEl.currentTime = targetTime;
+            const duration = activeVideoEl.duration && !isNaN(activeVideoEl.duration) && activeVideoEl.duration > 0 ? activeVideoEl.duration : 1;
+            const rawTarget = elapsed - (slideVideoEl ? timestamps[activeSlideIdx] : 0);
+            activeVideoEl.currentTime = rawTarget % duration;
             await activeVideoEl.play();
           } catch (e) {}
           lastActiveVideoEl = activeVideoEl;
         } else {
+          // Keep playing smoothly in real-time without hardware seek pauses
           if (activeVideoEl.paused) {
             try { await activeVideoEl.play(); } catch (e) {}
           }
-          if (Math.abs(activeVideoEl.currentTime - targetTime) > 0.2) {
+          // Only perform a hard seek if severely desynced (> 1.5s)
+          const duration = activeVideoEl.duration && !isNaN(activeVideoEl.duration) && activeVideoEl.duration > 0 ? activeVideoEl.duration : 1;
+          const rawTarget = elapsed - (slideVideoEl ? timestamps[activeSlideIdx] : 0);
+          const targetTime = rawTarget % duration;
+          if (Math.abs(activeVideoEl.currentTime - targetTime) > 1.5) {
             activeVideoEl.currentTime = targetTime;
           }
         }
