@@ -102,18 +102,19 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     }
   }, [slides, uploadedAssets]);
 
-  // Sync background video element currentTime with the global currentTime (looping modulo duration)
+  // Sync background video element currentTime ONLY when paused/scrubbing timeline (SokuDoku architecture)
+  // During active playback (isPlaying = true), video plays naturally & loops natively via loop=true with 0 seeking overhead.
   useEffect(() => {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video || isPlaying) return;
 
     const duration = video.duration && !isNaN(video.duration) && video.duration > 0 ? video.duration : 1;
     const targetTime = currentTime % duration;
 
-    if (Math.abs(video.currentTime - targetTime) > 1.5) {
+    if (Math.abs(video.currentTime - targetTime) > 0.05) {
       video.currentTime = targetTime;
     }
-  }, [currentTime]);
+  }, [currentTime, isPlaying]);
 
   // Play/pause background video based on isPlaying state
   useEffect(() => {
@@ -152,20 +153,20 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     }
   }, [activeSlide, uploadedAssets]);
 
-  // Sync slide-specific video element currentTime with the slide elapsed time (looping modulo duration)
+  // Sync slide-specific video element currentTime ONLY when paused/scrubbing timeline
   useEffect(() => {
     const sVideo = slideVideoRef.current;
-    if (!sVideo) return;
+    if (!sVideo || isPlaying) return;
 
     const slideStart = timestamps[activeSlideIdx] || 0;
     const rawTarget = currentTime - slideStart;
     const duration = sVideo.duration && !isNaN(sVideo.duration) && sVideo.duration > 0 ? sVideo.duration : 1;
     const targetTime = rawTarget % duration;
 
-    if (Math.abs(sVideo.currentTime - targetTime) > 1.5) {
+    if (Math.abs(sVideo.currentTime - targetTime) > 0.05) {
       sVideo.currentTime = targetTime;
     }
-  }, [currentTime, activeSlideIdx, timestamps, slideVideoUrl]);
+  }, [currentTime, activeSlideIdx, timestamps, slideVideoUrl, isPlaying]);
 
   // Play/pause slide-specific video based on isPlaying state
   useEffect(() => {

@@ -388,32 +388,21 @@ export async function exportVideo(params: ExportParams): Promise<Blob> {
       const slideVideoEl = slideVideoElements[activeSlideIdx];
       const activeVideoEl = slideVideoEl || videoEl;
 
-      // Handle video switching, seek, and looping playback in export rendering
       if (activeVideoEl) {
         if (activeVideoEl !== lastActiveVideoEl) {
           if (lastActiveVideoEl) {
             try { lastActiveVideoEl.pause(); } catch (e) {}
           }
           try {
-            const duration = activeVideoEl.duration && !isNaN(activeVideoEl.duration) && activeVideoEl.duration > 0 ? activeVideoEl.duration : 1;
-            const rawTarget = elapsed - (slideVideoEl ? timestamps[activeSlideIdx] : 0);
-            activeVideoEl.currentTime = rawTarget % duration;
+            activeVideoEl.currentTime = 0;
             await activeVideoEl.play();
           } catch (e) {}
           lastActiveVideoEl = activeVideoEl;
-        } else {
-          // Keep playing smoothly in real-time without hardware seek pauses
-          if (activeVideoEl.paused) {
-            try { await activeVideoEl.play(); } catch (e) {}
-          }
-          // Only perform a hard seek if severely desynced (> 1.5s)
-          const duration = activeVideoEl.duration && !isNaN(activeVideoEl.duration) && activeVideoEl.duration > 0 ? activeVideoEl.duration : 1;
-          const rawTarget = elapsed - (slideVideoEl ? timestamps[activeSlideIdx] : 0);
-          const targetTime = rawTarget % duration;
-          if (Math.abs(activeVideoEl.currentTime - targetTime) > 1.5) {
-            activeVideoEl.currentTime = targetTime;
-          }
+        } else if (activeVideoEl.paused) {
+          try { await activeVideoEl.play(); } catch (e) {}
         }
+        // Like SokuDoku, during active export, video plays naturally & loops natively via loop=true.
+        // We DO NOT set currentTime frame-by-frame, avoiding all hardware decoder seek flushes.
       }
 
       // Draw onto canvas
