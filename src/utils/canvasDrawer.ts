@@ -332,8 +332,13 @@ export function drawSlideFrame(
     ctx.fillRect(0, 0, width, height);
   }
 
-  // 1e. Draw Slide-specific Overlay Images (e.g. transparent PNGs)
+  // 1e. Draw Slide-specific Overlay Images (e.g. transparent PNGs) with entrance ease-in & floating breathing motion
   if (slide.images && imageCache) {
+    const entranceProgress = Math.min(1, safeSlideElapsed / 0.35);
+    const easeEntrance = 1 - Math.pow(1 - entranceProgress, 3); // easeOutCubic
+    const floatY = Math.sin(safeSlideElapsed * 2.5) * 5;
+    const breathScale = 1 + 0.012 * Math.sin(safeSlideElapsed * 3.5);
+
     for (const img of slide.images) {
       if (img.isBackground) continue;
       
@@ -343,7 +348,18 @@ export function drawSlideFrame(
         const y = img.y !== undefined ? img.y : 0;
         const w = img.w !== undefined ? img.w : width;
         const h = img.h !== undefined ? img.h : height;
-        ctx.drawImage(imgObj, x, y, w, h);
+
+        ctx.save();
+        ctx.globalAlpha = easeEntrance;
+        
+        // Calculate center for subtle scale & float transform
+        const cx = x + w / 2;
+        const cy = y + h / 2 + floatY;
+        
+        ctx.translate(cx, cy);
+        ctx.scale(easeEntrance * breathScale, easeEntrance * breathScale);
+        ctx.drawImage(imgObj, -w / 2, -h / 2, w, h);
+        ctx.restore();
       }
     }
   }

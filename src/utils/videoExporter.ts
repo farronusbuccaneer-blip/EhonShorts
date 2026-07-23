@@ -155,15 +155,38 @@ export async function exportVideo(params: ExportParams): Promise<Blob> {
     return v;
   };
 
-  // 1c. Load slide-specific video elements
+  // 1c. Load & preload slide-specific video elements
   const slideVideoElements: Record<number, HTMLVideoElement> = {};
+  const slideVideoPromises: Promise<void>[] = [];
+
   for (let i = 0; i < slides.length; i++) {
     const slide = slides[i];
     if (slide.video) {
       const resolved = resolveAssetUrl(slide.video.src, uploadedAssets);
-      slideVideoElements[i] = createAttachedVideoElement(resolved);
+      const sVideoEl = createAttachedVideoElement(resolved);
+      slideVideoElements[i] = sVideoEl;
+
+      const p = new Promise<void>((resolve) => {
+        if (sVideoEl.readyState >= 1 && sVideoEl.videoWidth > 0) {
+          sVideoEl.currentTime = 0;
+          resolve();
+        } else {
+          const onReady = () => {
+            sVideoEl.currentTime = 0;
+            resolve();
+          };
+          sVideoEl.onloadedmetadata = onReady;
+          sVideoEl.onloadeddata = onReady;
+          sVideoEl.oncanplay = onReady;
+          sVideoEl.onerror = () => resolve();
+          setTimeout(resolve, 2000);
+        }
+      });
+      slideVideoPromises.push(p);
     }
   }
+
+  await Promise.all(slideVideoPromises);
 
   // 1. Create video player for background rendering
   let videoEl: HTMLVideoElement | null = null;
